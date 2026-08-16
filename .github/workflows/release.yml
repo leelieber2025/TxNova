@@ -67,15 +67,15 @@ jobs:
           path: dist
 
   macos:
-    runs-on: ${{ matrix.runner }}
+    # Both targets cross-compiled from one Apple Silicon runner. macos-13
+    # (Intel) hosted runners have very limited GitHub capacity and can queue
+    # indefinitely; Xcode on macos-14 can already target x86_64 as well as
+    # aarch64, so there's no need for a separate Intel runner.
+    runs-on: macos-14
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - runner: macos-13
-            target: x86_64
-          - runner: macos-14
-            target: aarch64
+        target: [x86_64, aarch64]
     steps:
       - uses: actions/checkout@v4
       - uses: PyO3/maturin-action@v1
