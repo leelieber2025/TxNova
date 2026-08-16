@@ -1,7 +1,7 @@
 # TxNova Documentation
 
 [![Documentation](https://readthedocs.org/projects/txnova/badge/?version=latest)](https://txnova.readthedocs.io/en/latest/)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/leelieber2025/TxNova/blob/main/LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/leelieber2025/TxNova/blob/main/LICENSE)
 
 ```{toctree}
 :maxdepth: 1

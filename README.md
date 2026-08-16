@@ -1,6 +1,7 @@
 # TxNova
 
 [![Documentation](https://readthedocs.org/projects/txnova/badge/?version=latest)](https://txnova.readthedocs.io/en/latest/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 Experimental-group-specific novel intergenic transcripts from bulk RNA-seq **BAMs**.
 

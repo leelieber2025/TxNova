@@ -1,6 +1,6 @@
 # License
 
-**Software:** [MIT License](https://github.com/leelieber2025/TxNova/blob/main/LICENSE).
+**Software:** [Apache License 2.0](https://github.com/leelieber2025/TxNova/blob/main/LICENSE).
 
 Copyright 2026 Zhao Li (李钊).
 
