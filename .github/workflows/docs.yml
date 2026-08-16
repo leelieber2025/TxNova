@@ -1,0 +1,108 @@
+# Build the MkDocs site on every push/PR.
+# On push to the default branch, create the Read the Docs project if needed
+# and trigger a build. Requires repo secret RTD_TOKEN (no website Import).
+name: docs
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "docs/**"
+      - mkdocs.yml
+      - .readthedocs.yaml
+      - docs/requirements.txt
+      - .github/workflows/docs.yml
+  pull_request:
+    paths:
+      - "docs/**"
+      - mkdocs.yml
+      - .readthedocs.yaml
+      - docs/requirements.txt
+      - .github/workflows/docs.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build
+        run: |
+          pip install -r docs/requirements.txt
+          mkdocs build --strict
+
+  publish:
+    needs: build
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create RTD project if needed and trigger build
+        env:
+          RTD_TOKEN: ${{ secrets.RTD_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          RTD_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys, urllib.error, urllib.request
+
+          token = os.environ.get("RTD_TOKEN", "").strip()
+          if not token:
+              print("RTD_TOKEN is not set; skip publish (add it under repo Secrets).")
+              sys.exit(0)
+
+          slug = "txnova"
+          repo = os.environ["GITHUB_REPOSITORY"]
+          branch = os.environ.get("RTD_DEFAULT_BRANCH") or "main"
+          api = "https://readthedocs.org/api/v3"
+
+          def call(method, url, payload=None):
+              req = urllib.request.Request(url, method=method)
+              req.add_header("Authorization", f"Token {token}")
+              req.add_header("Accept", "application/json")
+              if payload is not None:
+                  data = json.dumps(payload).encode()
+                  req.add_header("Content-Type", "application/json")
+                  req.data = data
+              try:
+                  with urllib.request.urlopen(req) as resp:
+                      raw = resp.read()
+                      return resp.status, json.loads(raw) if raw else {}
+              except urllib.error.HTTPError as e:
+                  return e.code, e.read().decode(errors="replace")
+
+          code, body = call("GET", f"{api}/projects/{slug}/")
+          if code == 404:
+              code, body = call(
+                  "POST",
+                  f"{api}/projects/",
+                  {
+                      "name": slug,
+                      "repository": {
+                          "url": f"https://github.com/{repo}",
+                          "type": "git",
+                      },
+                      "homepage": f"https://github.com/{repo}",
+                      "programming_language": "py",
+                      "language": "en",
+                      "default_branch": branch,
+                  },
+              )
+              if code not in (200, 201):
+                  sys.exit(f"create Read the Docs project failed ({code}): {body}")
+              print(f"created https://{slug}.readthedocs.io/")
+          elif code != 200:
+              sys.exit(f"lookup Read the Docs project failed ({code}): {body}")
+          else:
+              print(f"project {slug} already exists")
+
+          code, body = call("POST", f"{api}/projects/{slug}/versions/latest/builds/", {})
+          if code not in (200, 201, 202):
+              sys.exit(f"trigger Read the Docs build failed ({code}): {body}")
+          print("triggered Read the Docs build")
+          PY

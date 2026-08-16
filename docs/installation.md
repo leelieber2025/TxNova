@@ -64,8 +64,8 @@ pytest -q
 `[dev]` adds `pytest`, `ruff`, `mypy`, and `maturin`. After editing Rust:
 `maturin develop`.
 
-Docs are on [txnova.readthedocs.io](https://txnova.readthedocs.io/).
-Every push to `main` rebuilds the site. One GitHub secret is enough:
+Docs are on [txnova.readthedocs.io/en/latest/](https://txnova.readthedocs.io/en/latest/).
+Every push to `main` rebuilds **latest**. One GitHub secret is enough:
 
 1. Read the Docs → account → [API tokens](https://readthedocs.org/accounts/tokens/) → create a token.
 2. GitHub repo → Settings → Secrets → `RTD_TOKEN` = that token.
@@ -74,6 +74,11 @@ Do not click Import on the Read the Docs website. The `docs` workflow creates
 the `txnova` project if it is missing and triggers a build.
 
 Local preview: `pip install -e ".[docs]"` then `mkdocs serve`.
+
+If the site 404s while the build log is green: open
+[…/en/latest/](https://txnova.readthedocs.io/en/latest/), not `/en/stable/`.
+`stable` only exists after a Git tag. In Read the Docs → **Admin →
+Settings → Default version**, set **latest** (and turn off PDF/ePub).
 
 ## Releasing wheels
 
