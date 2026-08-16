@@ -1,4 +1,7 @@
-# Read the Docs + local `mkdocs serve`. Do not pip-install txnova here
+# Read the Docs + local sphinx-build. Do not pip-install txnova here
 # (that would compile the Rust extension on the docs builder).
-mkdocs>=1.6,<2
-mkdocs-material>=9.5,<10
+sphinx>=7.0
+sphinx-book-theme>=1.1
+myst-parser>=2.0
+sphinx-copybutton>=0.5
+sphinx-design>=0.5

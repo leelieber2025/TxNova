@@ -1,4 +1,4 @@
-# Build the MkDocs site on every push/PR.
+# Build the Sphinx site on every push/PR.
 # On push to the default branch, create the Read the Docs project if needed
 # and trigger a build. Requires repo secret RTD_TOKEN (no website Import).
 name: docs
@@ -8,14 +8,12 @@ on:
     branches: [main, master]
     paths:
       - "docs/**"
-      - mkdocs.yml
       - .readthedocs.yaml
       - docs/requirements.txt
       - .github/workflows/docs.yml
   pull_request:
     paths:
       - "docs/**"
-      - mkdocs.yml
       - .readthedocs.yaml
       - docs/requirements.txt
       - .github/workflows/docs.yml
@@ -35,7 +33,7 @@ jobs:
       - name: Build
         run: |
           pip install -r docs/requirements.txt
-          mkdocs build --strict
+          sphinx-build -b html docs docs/_build/html
 
   publish:
     needs: build

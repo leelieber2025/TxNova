@@ -41,3 +41,8 @@ A 2-vs-2 public mouse smoke (ENCODE BMDM ± Lipid A) is in
 | [Configuration reference](docs/configuration.md) | Every `config.yaml` field and its default |
 | [Output reference](docs/outputs.md) | Output directory layout and column meanings |
 | [FAQ / Troubleshooting](docs/faq.md) | Preflight errors, empty candidate tables, common gotchas |
+
+## Author
+
+**Zhao Li (李钊)**  
+Email: [leelieber@gmail.com](mailto:leelieber@gmail.com)

@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.75"
 license = "MIT"
+authors = ["Zhao Li (李钊) <leelieber@gmail.com>"]
 description = "TxNova BAM/genome I/O and preflight engine"
 
 [lib]

@@ -6,11 +6,11 @@ build:
   tools:
     python: "3.12"
 
-# HTML only. PDF/ePub on MkDocs often fail while the website is fine.
 formats: []
 
-mkdocs:
-  configuration: mkdocs.yml
+sphinx:
+  configuration: docs/conf.py
+  fail_on_warning: false
 
 python:
   install:

@@ -1,5 +1,24 @@
 # TxNova Documentation
 
+[![Documentation](https://readthedocs.org/projects/txnova/badge/?version=latest)](https://txnova.readthedocs.io/en/latest/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/leelieber2025/TxNova/blob/main/LICENSE)
+
+```{toctree}
+:maxdepth: 1
+:hidden:
+
+installation
+quickstart
+data_preparation
+configuration
+outputs
+faq
+PUBLIC_MOUSE
+license
+```
+
+## What TxNova does
+
 TxNova finds **experimental-group-specific novel intergenic transcripts** from
 bulk RNA-seq. Input is aligned BAMs. Output is a candidate table and a report.
 
@@ -88,3 +107,8 @@ hexamer table is mouse). Install with `pip install txnova` (see
 [Installation](installation.md)). The CLI surface (`init`,
 `preflight`, `run`, `report`) and the `config.yaml` schema are the stable,
 documented interface; the Python modules under `txnova.*` are internal.
+
+## Author
+
+**Zhao Li (李钊)**  
+Email: [leelieber@gmail.com](mailto:leelieber@gmail.com)

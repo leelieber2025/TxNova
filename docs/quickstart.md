@@ -38,7 +38,7 @@ exists.
 | `strandedness` | `unstranded`, `fr`, or `rf` — must be the same for every sample in the sheet |
 | `replicate` | Optional integer. Auto-numbered per group (1, 2, …) if you leave it blank |
 
-```tsv
+```text
 sample_id	bam	group	strandedness	replicate
 ctrl_1	/data/ctrl_1.bam	control	rf	1
 ctrl_2	/data/ctrl_2.bam	control	rf	2

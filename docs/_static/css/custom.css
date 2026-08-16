@@ -1,0 +1,89 @@
+/* TxNova documentation polish (on top of sphinx_book_theme).
+   Same family as scATrans: teal accent, readable tables, light + dark. */
+
+:root {
+  --scat-accent: #2a7f8e;
+  --scat-accent-2: #3d5a80;
+  --scat-accent-soft: #e6f2f4;
+  --scat-code-bg: #f7f9fb;
+  --scat-code-border: #e3e8ee;
+  --scat-table-head: #eef3f6;
+  --scat-table-stripe: #f7fafb;
+  --scat-table-border: #dce3ea;
+}
+
+html[data-theme="dark"] {
+  --scat-accent: #56b6c2;
+  --scat-accent-2: #7aa2c9;
+  --scat-accent-soft: #17313a;
+  --scat-code-bg: #1b1f24;
+  --scat-code-border: #2c333c;
+  --scat-table-head: #222831;
+  --scat-table-stripe: #1c2126;
+  --scat-table-border: #2c333c;
+}
+
+.bd-main .bd-content {
+  max-width: 88rem;
+}
+.bd-article {
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.bd-article h1 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  padding-bottom: 0.3em;
+  border-bottom: 3px solid var(--scat-accent);
+}
+.bd-article h2 {
+  font-weight: 650;
+  margin-top: 2.2em;
+  padding-bottom: 0.2em;
+  border-bottom: 1px solid var(--scat-code-border);
+}
+.bd-article h3 {
+  font-weight: 600;
+  margin-top: 1.6em;
+  color: var(--scat-accent-2);
+}
+
+.bd-article table {
+  border-collapse: collapse;
+  border: 1px solid var(--scat-table-border);
+  font-size: 0.9em;
+  font-variant-numeric: tabular-nums;
+}
+.bd-article table thead th {
+  background: var(--scat-table-head);
+  color: var(--scat-accent-2);
+  font-weight: 600;
+  border-bottom: 2px solid var(--scat-accent);
+  padding: 6px 12px;
+}
+.bd-article table td,
+.bd-article table th {
+  padding: 5px 12px;
+  border-top: 1px solid var(--scat-table-border);
+}
+.bd-article table tbody tr:nth-child(even) td {
+  background: var(--scat-table-stripe);
+}
+
+.bd-article .admonition {
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+.bd-article .admonition.note {
+  border-left-color: var(--scat-accent);
+}
+
+.sd-card {
+  border-radius: 10px;
+  border: 1px solid var(--scat-code-border);
+}
+
+button.copybtn {
+  border-radius: 5px;
+}

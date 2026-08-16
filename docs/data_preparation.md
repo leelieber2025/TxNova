@@ -142,7 +142,7 @@ libraries it changes `control_max_tpm` / `treat_median_tpm` gate outcomes.
 
 ## 7. Write the sample sheet and validate
 
-```tsv
+```text
 sample_id	bam	group	strandedness	replicate
 ctrl_1	/data/ctrl_1_sorted.bam	control	rf	1
 ctrl_2	/data/ctrl_2_sorted.bam	control	rf	2

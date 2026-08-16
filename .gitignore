@@ -12,6 +12,7 @@ venv/
 dist/
 build/
 /site/
+/docs/_build/
 txnova_out/
 *.whl
 .python-version
