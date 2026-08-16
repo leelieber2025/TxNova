@@ -1,0 +1,4 @@
+chr1	HAVANA	gene	10	200	.	+	.	gene_id "ENSG1"; gene_name "G1";
+chr1	HAVANA	transcript	10	200	.	+	.	gene_id "ENSG1"; transcript_id "ENST1";
+chr1	HAVANA	exon	10	80	.	+	.	gene_id "ENSG1"; transcript_id "ENST1";
+chr1	HAVANA	exon	120	200	.	+	.	gene_id "ENSG1"; transcript_id "ENST1";

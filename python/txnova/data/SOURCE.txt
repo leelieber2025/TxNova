@@ -1,0 +1,4 @@
+Mouse_Hexamer.tsv is the published CPAT mouse hexamer frequency table
+(Wang et al. 2013). TxNova uses the coding and noncoding frequencies for
+an in-process hexamer log-likelihood. It does not run CPAT and does not
+use CPAT's logistic model.

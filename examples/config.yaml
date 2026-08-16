@@ -1,0 +1,54 @@
+species: mouse
+output_dir: ./txnova_out
+threads: 0
+
+genome:
+  fasta: /path/to/GRCm39.primary_assembly.genome.fa
+  annotation: /path/to/gencode.vM39.primary_assembly.annotation.gtf
+  annotation_source: GENCODE
+  annotation_version: M39
+  assembly: GRCm39
+  naming_annotation: null
+
+samples: samples.tsv
+
+quantify:
+  min_mapq: 10
+  require_unique_nh: false
+  library_layout: auto
+  skip_duplicate: auto
+
+filters:
+  class: u
+  min_exons: 1
+  require_canonical_splice: true
+  max_noncanonical_junction_fraction: 0.0
+  min_nearest_same_strand_bp: 1000
+  require_coverage_discontinuity: true
+  discontinuity_window_bp: 50
+  discontinuity_valley_bp: 200
+  discontinuity_valley_max_mean: 1.0
+  discontinuity_ratio: 0.1
+  discontinuity_min_treat_samples: 1
+  reject_bridging_junction: true
+  bridge_min_reads: 2
+  transcript_min_nt: 100
+  control_max_tpm: 1.0
+  treat_detect_tpm: 0.1
+  treat_min_detected_replicates: 2
+  treat_median_tpm: 0.5
+
+de:
+  enabled: true
+  padj: 0.05
+  min_log2fc: 0.5
+
+coding:
+  enabled: true
+  min_orf_aa: 50
+  require_orf: false
+  hexamer_coding_min: 0.0
+  hexamer_noncoding_max: 0.0
+  hexamer_table: null
+  fold: true
+  orphan: true

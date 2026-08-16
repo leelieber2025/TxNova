@@ -1,0 +1,51 @@
+site_name: TxNova
+site_description: Experimental-group-specific novel intergenic transcripts from bulk RNA-seq BAMs
+site_url: https://txnova.readthedocs.io
+repo_url: https://github.com/leelieber2025/TxNova
+repo_name: leelieber2025/TxNova
+edit_uri: edit/main/docs/
+docs_dir: docs
+copyright: TxNova contributors
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - content.code.copy
+  palette:
+    - scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Dark mode
+    - scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Light mode
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Quickstart: quickstart.md
+  - Data preparation: data_preparation.md
+  - Configuration: configuration.md
+  - Outputs: outputs.md
+  - FAQ: faq.md
+  - Public mouse smoke: PUBLIC_MOUSE.md
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+
+exclude_docs: |
+  DEVELOPMENT.md
+  DATASETS.md
+  LOCUS_HYPOTHESIS.md

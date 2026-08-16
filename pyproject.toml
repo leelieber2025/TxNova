@@ -1,0 +1,53 @@
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+[project]
+name = "txnova"
+version = "0.1.0"
+description = "Experimental-group-specific novel intergenic transcripts from bulk RNA-seq BAMs"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+  "typer>=0.12",
+  "pydantic>=2.5,<3",
+  "pyyaml>=6.0",
+  "pandas>=2.0,<3",
+  "rich>=13.0",
+  "jinja2>=3.1",
+  "pydeseq2>=0.4",
+  "numpy>=1.23,<3",
+  "scipy>=1.9",
+]
+
+[project.optional-dependencies]
+dev = ["maturin>=1.7,<2", "pytest>=7.0", "ruff", "mypy"]
+docs = ["mkdocs>=1.6,<2", "mkdocs-material>=9.5,<10"]
+
+[project.urls]
+Homepage = "https://github.com/leelieber2025/TxNova"
+Documentation = "https://txnova.readthedocs.io"
+Repository = "https://github.com/leelieber2025/TxNova"
+Issues = "https://github.com/leelieber2025/TxNova/issues"
+
+[project.scripts]
+txnova = "txnova.cli:app"
+
+[tool.maturin]
+python-source = "python"
+module-name = "txnova._core"
+manifest-path = "rust/txnova-core/Cargo.toml"
+features = ["pyo3/extension-module"]
+include = [
+  "python/txnova/data/Mouse_Hexamer.tsv",
+  "python/txnova/data/SOURCE.txt",
+  "python/txnova/templates/report.html.j2",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
