@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Experimental-group-specific novel intergenic transcripts from bulk RNA-seq BAMs"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
+license-files = ["LICENSE"]
 authors = [
     { name = "Zhao Li (李钊)", email = "leelieber@gmail.com" },
 ]
@@ -48,6 +49,8 @@ module-name = "txnova._core"
 manifest-path = "rust/txnova-core/Cargo.toml"
 features = ["pyo3/extension-module"]
 include = [
+  "LICENSE",
+  "README.md",
   "python/txnova/data/Mouse_Hexamer.tsv",
   "python/txnova/data/SOURCE.txt",
   "python/txnova/templates/report.html.j2",
@@ -60,3 +63,4 @@ addopts = "-q"
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+
