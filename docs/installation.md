@@ -70,7 +70,7 @@ Local preview:
 
 ```bash
 pip install -r docs/requirements.txt
-sphinx-build -b html docs docs/_build/html
+sphinx-build -b dirhtml docs docs/_build/html
 ```
 
 Open `docs/_build/html/index.html`. If the published site 404s while the

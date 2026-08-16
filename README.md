@@ -1,12 +1,14 @@
 # TxNova
 
-[![Documentation](https://readthedocs.org/projects/txnova/badge/?version=latest)](https://txnova.readthedocs.io/)
+[![Documentation](https://readthedocs.org/projects/txnova/badge/?version=latest)](https://txnova.readthedocs.io/en/latest/)
 
 Experimental-group-specific novel intergenic transcripts from bulk RNA-seq **BAMs**.
 
 Treat-recurrent residual splices become locus models (`RSDL.*`). Class, counts,
 junctions, and bridges are recomputed from the BAM and the annotation. The
 output is a candidate table.
+
+Docs: [https://txnova.readthedocs.io/en/latest/](https://txnova.readthedocs.io/en/latest/).
 
 ```bash
 pip install txnova
@@ -31,6 +33,8 @@ A 2-vs-2 public mouse smoke (ENCODE BMDM ± Lipid A) is in
 [docs/PUBLIC_MOUSE.md](docs/PUBLIC_MOUSE.md).
 
 ## Documentation
+
+Full site: [txnova.readthedocs.io](https://txnova.readthedocs.io/en/latest/).
 
 | Guide | Covers |
 |---|---|
