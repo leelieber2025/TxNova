@@ -70,7 +70,7 @@ def test_run_with_mock_assembler(tmp_path: Path) -> None:
     assert (cfg.output_dir / "candidates" / "residual.tsv").is_file()
     assert (cfg.output_dir / "stamps" / "residual.json").is_file()
     md = (cfg.output_dir / "report" / "report.md").read_text()
-    assert "not a claim of new genes" in md
+    assert "locus/loci in the final table" in md
     assert (cfg.output_dir / "report" / "report.html").is_file()
     leftover = list(cfg.output_dir.glob(".txnova_staging_*"))
     assert leftover == []

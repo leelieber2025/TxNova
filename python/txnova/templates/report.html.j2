@@ -48,7 +48,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 </head>
 <body>
 <h1>TxNova report</h1>
-<p class="lede">{{ n_candidates }} locus/loci in the final table. This is a locus table, not a claim of new genes.</p>
+<p class="lede">{{ n_candidates }} locus/loci in the final table.</p>
 
 <div class="card">
 <dl>
@@ -65,7 +65,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
     requested threads={{ t.requested }}; auto bam={{ t.auto }})
   </dd>
   <dt>DE</dt><dd>{% if cfg.de.enabled %}DESeq2-style (pydeseq2); keeps <code>wald</code> (padj+LFC) and <code>low_count</code> (independent-filtering NA); evaluated non-hits are dropped{% else %}not run{% endif %}</dd>
-  <dt>coding</dt><dd>{% if cfg.coding.enabled %}hexamer LLR + Fickett; not CPAT; not a functional claim{% else %}not run{% endif %}</dd>
+  <dt>coding</dt><dd>{% if cfg.coding.enabled %}hexamer LLR + Fickett{% else %}not run{% endif %}</dd>
   <dt>orphan</dt><dd>{% if cfg.coding.enabled and cfg.coding.orphan %}named_overlap=none: UCSC phyloP/phastCons + HMMER hmmscan/Pfam{% else %}not run{% endif %}</dd>
 </dl>
 </div>
@@ -115,7 +115,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 
 <h2>Leak (BAM splice not in the candidate path)</h2>
 {% if leaks %}
-<p class="note">{{ n_leaks }} treat-recurrent, control-silent splice junctions missing from <code>merged.gtf</code> (<code>unassembled</code>) or on a class-u intron that did not become a candidate (<code>assembled_u</code>). Known-gene introns are omitted.{% if leaks and n_leaks > leaks|length %} Showing {{ leaks|length }} with highest treat support.{% endif %} See <code>candidates/leak.tsv</code>.</p>
+<p class="note">{{ n_leaks }} treat-recurrent, control-silent splice junctions missing from the annotation (<code>unassembled</code>). Known-gene introns are omitted. <code>assembled_u</code> is unused because <code>merged.gtf</code> is the annotation.{% if leaks and n_leaks > leaks|length %} Showing {{ leaks|length }} with highest treat support.{% endif %} See <code>candidates/leak.tsv</code>.</p>
 <div class="wrap">
 <table>
   <thead>
@@ -161,7 +161,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 
 <h2>Gene-like rank</h2>
 {% if gene_ranks %}
-<p class="note">{{ n_ranked }} structure-pass loci ranked by how gene-like they are (ORF + hexamer + Fickett; spliced / intergenic / not TE; penalties for unplaced contig, unsupported intron, gag/pol/MLV, intronless copy of a known protein). phyloP + Pfam on the top 40, then re-sorted. Not a claim they are genes.{% if gene_ranks and n_ranked > gene_ranks|length %} Showing the top {{ gene_ranks|length }}.{% endif %} See <code>candidates/gene_rank.tsv</code>.</p>
+<p class="note">{{ n_ranked }} structure-pass loci ranked by how gene-like they are (ORF + hexamer + Fickett; spliced / intergenic; penalties for unplaced contig, unsupported intron, gag/pol/MLV, intronless copy of a known protein). phyloP + Pfam on the top 40, then re-sorted.{% if gene_ranks and n_ranked > gene_ranks|length %} Showing the top {{ gene_ranks|length }}.{% endif %} See <code>candidates/gene_rank.tsv</code>.</p>
 <div class="wrap">
 <table>
   <thead>
@@ -187,7 +187,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 
 <h2>Orphan (no gene name)</h2>
 {% if orphans %}
-<p class="note">{{ n_orphans }} loci with <code>named_overlap=none</code>. phyloP/phastCons are UCSC conservation on exons (not PhyloCSF; that track is not on mm39). Pfam is HMMER hmmscan. This is not a claim they are genes. See <code>candidates/orphan.tsv</code>.</p>
+<p class="note">{{ n_orphans }} loci with <code>named_overlap=none</code>. phyloP/phastCons are UCSC conservation on exons. Pfam is HMMER hmmscan. See <code>candidates/orphan.tsv</code>.</p>
 <div class="wrap">
 <table>
   <thead>
@@ -226,7 +226,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
   </tbody>
 </table>
 </div>
-<p class="note"><code>assembled_in</code> is which sample StringTie GTFs proposed the locus. Junction and bridge counts are BAM CIGAR <code>N</code>, not StringTie. <code>de_status=wald</code> is padj + LFC. <code>de_status=low_count</code> is independent-filtering NA (Wald was computed); it is not a significant padj.</p>
+<p class="note"><code>assembled_in</code> is unused with the residual assembler (per-sample GTFs are stubs). Junction and bridge counts are BAM CIGAR <code>N</code>. <code>de_status=wald</code> is padj + LFC. <code>de_status=low_count</code> is independent-filtering NA (Wald was computed); it is not a significant padj.</p>
 {% else %}
 <p>Empty final table. Structure + detection may still have rows in <code>candidates/candidates.gates.tsv</code>. Evaluated DE non-hits are dropped; independent-filtering NA is not. See <code>candidates/candidates.tsv</code> and <code>quantify/de.tsv</code>.</p>
 {% endif %}

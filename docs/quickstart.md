@@ -126,9 +126,8 @@ support, TPM in control vs. treat, and DE statistics. Full column reference:
 
 ### If `candidates.tsv` is empty
 
-This is common and not necessarily a bug — real experiments often have zero
-or a handful of intergenic, treat-specific, gene-like loci. Before assuming
-something's wrong:
+Real experiments often have zero or a handful of intergenic, treat-specific
+loci. To see which stage cut the count:
 
 1. Check `report/report.md`'s **Funnel** section to see which stage cut the
    count to zero (structure gates, control/treat TPM gates, or DE).

@@ -26,7 +26,7 @@ def test_preflight_cli_and_honest_report_text(tmp_path: Path) -> None:
     cfg = load_config(p)
     rows = load_samples(cfg.samples)
     md = render_report(cfg, rows, {"ok": True, "aligner_family": "STAR"}, n_candidates=0)
-    assert "not a claim of new genes" in md
+    assert "locus/loci in the final table" in md
     assert "0" in md
     assert "## Residual splice loci" in md
     assert "No residual splice loci" in md
@@ -54,7 +54,7 @@ def test_write_html_report(tmp_path: Path) -> None:
     html_path = cfg.output_dir / "report" / "report.html"
     assert html_path.is_file()
     text = html_path.read_text(encoding="utf-8")
-    assert "not a claim of new genes" in text
+    assert "locus/loci in the final table" in text
     assert "hexamer LLR" in text
     leftover = list(cfg.output_dir.glob(".txnova_staging_*"))
     assert leftover == []

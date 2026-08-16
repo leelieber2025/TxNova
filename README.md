@@ -4,9 +4,9 @@
 
 Experimental-group-specific novel intergenic transcripts from bulk RNA-seq **BAMs**.
 
-The table is a candidate list, not a claim of new genes. Novel models come from
-treat-recurrent residual splices. Class, counts, junctions, and bridges are
-recomputed in-process from the BAM and the annotation.
+Treat-recurrent residual splices become locus models (`RSDL.*`). Class, counts,
+junctions, and bridges are recomputed from the BAM and the annotation. The
+output is a candidate table.
 
 ```bash
 pip install txnova
@@ -15,8 +15,8 @@ txnova preflight -c config.yaml
 txnova run -c config.yaml
 ```
 
-No Rust toolchain and no StringTie. Input is coordinate-sorted, indexed BAM
-from `STAR` or `HISAT2`.
+Wheels cover Linux and macOS. On Windows use WSL2. Input is a
+coordinate-sorted, indexed BAM from `STAR` or `HISAT2`.
 
 Outputs under `output_dir`:
 
@@ -25,7 +25,7 @@ Outputs under `output_dir`:
 - `quantify/` — full-universe counts / TPM / DE
 
 Default coding table is the packaged mouse hexamer frequencies
-(`coding.hexamer_table` overrides). The score is hexamer log-likelihood, not CPAT.
+(`coding.hexamer_table` overrides). The score is a hexamer log-likelihood.
 
 A 2-vs-2 public mouse smoke (ENCODE BMDM ± Lipid A) is in
 [docs/PUBLIC_MOUSE.md](docs/PUBLIC_MOUSE.md).

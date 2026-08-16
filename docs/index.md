@@ -1,15 +1,10 @@
 # TxNova Documentation
 
 TxNova finds **experimental-group-specific novel intergenic transcripts** from
-bulk RNA-seq — genes that current annotation (e.g. GENCODE) doesn't know about,
-that show up in your treated/experimental samples, and that are basically
-absent in control. It takes aligned BAMs in, and gives you a candidate table
-and a report out.
+bulk RNA-seq. Input is aligned BAMs. Output is a candidate table and a report.
 
-The output table is a **candidate list**, not a claim of new genes. Novel
-models come from treat-recurrent residual splices. TxNova recomputes class,
-counts, junctions, and splice-bridging evidence in-process from the BAM and
-the annotation.
+Treat-recurrent residual splices become locus models. Class, counts, junctions,
+and splice-bridging evidence are recomputed from the BAM and the annotation.
 
 ## The pipeline, in one picture
 
@@ -18,42 +13,38 @@ the annotation.
              │
              ▼
     ┌──────────────────────┐
-    │ 1. Assemble + merge   │  annotation + residual splice loci
+    │ 1. Known universe      │  slim gene/transcript/exon from the annotation
     └──────────────────────┘
              │
              ▼
     ┌──────────────────────┐
-    │ 2. Classify            │  in-process: which transcripts are class "u"
-    │    (intergenic, u)     │  (no exon overlap, no gene body on either strand)
+    │ 2. Leak + residual     │  treat-recurrent, control-silent CIGAR N
+    │                        │  clustered into RSDL loci; clip off gene bodies
     └──────────────────────┘
              │
              ▼
     ┌──────────────────────┐
-    │ 3. Quantify             │  Rust re-counts every merged transcript/gene
-    │    (full universe)      │  from the BAM — TPM/counts
+    │ 3. Classify            │  universe = annotation + residual
+    │    (intergenic, u)     │  u = no exon overlap, no gene body either strand
     └──────────────────────┘
              │
              ▼
     ┌──────────────────────┐
-    │ 4. Structure scan       │  splice canonicity, coverage discontinuity,
-    │                         │  bridging junctions, nearest-gene distance
+    │ 4. Quantify            │  Rust re-counts every universe locus from BAM
     └──────────────────────┘
              │
              ▼
     ┌──────────────────────┐
-    │ 5. Gates (structure,   │  control-silent + treat-recurrent + gene-like
-    │    detection, DE)      │  → candidates.tsv
+    │ 5. Structure + gates   │  splice, distance, valley, TPM, then DE
     └──────────────────────┘
              │  optional
              ▼
     ┌──────────────────────┐
-    │ 6. Coding                │  ORF scan, hexamer/Fickett score,
-    │    (ORF, fold, orphan)   │  3D structure, conservation, Pfam
+    │ 6. Coding              │  ORF, hexamer LLR, Fickett; fold / orphan
     └──────────────────────┘
 ```
 
-Every step after assembly runs in-process (Rust core + Python orchestration).
-There is no external assembler binary.
+Per-sample GTFs are stubs. Leak and quantify scan the BAMs.
 
 ## Where to go
 
@@ -72,14 +63,13 @@ There is no external assembler binary.
 ```bash
 txnova init -c config.yaml --samples samples.tsv   # write starter files
 txnova preflight -c config.yaml                     # validate BAMs/FASTA/GTF/sample sheet
-txnova run -c config.yaml                            # assemble → classify → quantify → gate → (DE, coding)
+txnova run -c config.yaml                            # leak → residual → classify → quantify → gate → (DE, coding)
 ```
 
 `txnova preflight` is cheap and catches most mistakes (mismatched contigs,
 un-indexed BAMs, mixed aligners, wrong `group`/`strandedness` values) before
-you spend time on assembly. Always run it first — `txnova run` runs it again
-automatically, but by then you may have already started building samples.tsv
-around a bad assumption.
+you spend time scanning BAMs. `txnova run` runs preflight again automatically.
+There is also `txnova report` to rebuild Markdown/HTML from an existing run.
 
 ## What you need before you start
 
@@ -89,7 +79,7 @@ around a bad assumption.
 - A genome FASTA (with a `.fai` index) and a matching GTF annotation whose
   contig names agree with the BAM's `@SQ` lines.
 
-No FASTQs, no realignment — TxNova starts from BAMs you already produced.
+TxNova starts from BAMs you already aligned.
 
 ## Status
 

@@ -20,11 +20,11 @@ plain `pip install txnova` (prebuilt wheel) and still see this, something
 is wrong with the wheel for your platform — file an issue. See
 [Installation](installation.md).
 
-## Do I need StringTie or Rust?
+## Do I need extra tools on `PATH`?
 
-No. `pip install txnova` is a prebuilt wheel. Novel models come from residual
-splices inside the process. Rust is only needed to **develop** the engine
-(see [Installation](installation.md#development-install)).
+`pip install txnova` is a prebuilt wheel. Residual splices are built inside
+the process. Rust is only needed to develop the engine (see
+[Installation](installation.md#development-install)).
 
 ## Preflight fails with a contig/`@SQ` message
 
@@ -67,18 +67,18 @@ without a DE filter. See [`de`](configuration.md#de).
 
 ## `candidates.tsv` is empty
 
-Common, and not automatically a bug — many real 2-vs-2/3-vs-3 designs
-legitimately produce zero or a handful of intergenic, treat-specific,
-gene-like loci (see [Public mouse smoke test](PUBLIC_MOUSE.md) for a worked
-example where the honest answer is "single digits"). To find *where* the
-count went to zero:
+Many 2-vs-2/3-vs-3 designs produce zero or a handful of intergenic,
+treat-specific loci (see [Public mouse smoke test](PUBLIC_MOUSE.md)). To see
+which stage cut the count:
 
 1. Open `report/report.md` (or `.html`) and read the **Funnel** section —
    it shows counts at every stage (merged transcripts → class `u` →
    structure-pass → gates → DE → final).
 2. `candidates/candidates.gates.tsv` is the pre-DE view. If it has rows and
-   `candidates.tsv` doesn't, the DE step is the filter — check
-   `quantify/de.tsv` for `padj`/`log2FoldChange` near your cutoffs.
+   `candidates.tsv` doesn't, the DE *filter* dropped them. `padj` NA with
+   LFC ≥ `min_log2fc` is `de_status=low_count` and **stays**. Empty after
+   gates means an evaluated non-hit (`padj` too large or LFC too small) or
+   an unfitted row (`pvalue` also NA). Check `quantify/de.tsv`.
 3. If `candidates.gates.tsv` is already empty, the structural/abundance
    gates in [`filters`](configuration.md#filters) are the ones to loosen
    first — most commonly `control_max_tpm`, `treat_detect_tpm`,
@@ -87,7 +87,7 @@ count went to zero:
    harvest: treat-recurrent, control-silent CIGAR `N` junctions not in the
    annotation. A locus with strong `treat_sum` there but nothing in
    `candidates.tsv` failed a later gate — look at length, splice, distance,
-   or control TPM, not "the assembler missed it."
+   or control TPM.
 
 ## Unknown field / extra keys error from `config.yaml`
 
@@ -103,11 +103,11 @@ nearest genes are defined against it. Use a comprehensive annotation
 (GENCODE comprehensive, not a cellranger-thin GTF); a thin one makes real
 genes look intergenic.
 
-`genome.naming_annotation` is optional and does exactly one thing: fill in
-`named_gene_name` / `named_overlap` for class-`u` loci that `annotation`
-left blank, using a *different* (usually more comprehensive) gene-body table.
-It never affects class assignment, gating, or distances. Most setups that
-already use a comprehensive `annotation` don't need it at all.
+`genome.naming_annotation` is optional. It fills `named_gene_name` /
+`named_overlap` for class-`u` loci that `annotation` left blank, and residual
+harvest also uses it for the 200 nt same-strand knife. It does not change
+class `u` or the 1 kb distance gate. If `annotation` is already comprehensive,
+you usually do not need it.
 
 ## Are locus IDs stable across runs?
 
@@ -172,13 +172,10 @@ empirically before re-running.
 
 ## What does a `coding_label = coding` call actually mean?
 
-It means the hexamer log-likelihood score cleared `coding.hexamer_coding_min`
-(default `0.0`). This is TxNova's own hexamer LLR score computed from the
-packaged (mouse) or a custom `hexamer_table` — it is **not** a CPAT score,
-so don't compare it directly to published CPAT cutoffs from other tools/
-papers. `require_orf: true` is a stricter, separate gate (a complete ORF of
-at least `min_orf_aa`) if you want that instead of/in addition to the
-hexamer call.
+The hexamer log-likelihood cleared `coding.hexamer_coding_min` (default
+`0.0`), using the packaged mouse table or your `hexamer_table`. Published
+CPAT cutoffs do not apply. `require_orf: true` is a separate gate: a complete
+ORF of at least `min_orf_aa`.
 
 ## Does TxNova support species other than mouse?
 

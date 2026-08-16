@@ -35,12 +35,18 @@ jobs:
           args: --release --out dist
           sccache: "true"
           before-script-linux: |
+            # rust-htslib 0.47 pulls bindgen; manylinux needs libclang, not just clang.
             if command -v yum >/dev/null; then
-              yum install -y zlib-devel bzip2-devel xz-devel clang
+              yum install -y zlib-devel bzip2-devel xz-devel clang clang-devel llvm-devel
             elif command -v dnf >/dev/null; then
-              dnf install -y zlib-devel bzip2-devel xz-devel clang
+              dnf install -y zlib-devel bzip2-devel xz-devel clang clang-devel llvm-devel
             elif command -v apk >/dev/null; then
-              apk add --no-cache zlib-dev bzip2-dev xz-dev clang
+              apk add --no-cache zlib-dev bzip2-dev xz-dev clang clang-dev llvm-dev
+            fi
+            CLANG_SO=$(find /usr -name 'libclang.so*' 2>/dev/null | head -1 || true)
+            if [ -n "$CLANG_SO" ]; then
+              export LIBCLANG_PATH="$(dirname "$CLANG_SO")"
+              echo "LIBCLANG_PATH=$LIBCLANG_PATH"
             fi
       - uses: actions/upload-artifact@v4
         with:

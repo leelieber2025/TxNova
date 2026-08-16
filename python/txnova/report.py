@@ -113,8 +113,14 @@ def _funnel(out: Path) -> list[dict[str, Any]]:
         else:
             n_un = int((ldf["status"] == "unassembled").sum())
             n_au = int((ldf["status"] == "assembled_u").sum())
-            rows.append({"label": "leak unassembled (BAM splice, no merge intron)", "n": n_un})
-            rows.append({"label": "leak assembled_u (in merge u, not a candidate)", "n": n_au})
+            rows.append({"label": "leak unassembled (BAM splice, not in annotation)", "n": n_un})
+            if n_au:
+                rows.append(
+                    {
+                        "label": "leak assembled_u (unused; merged.gtf is the annotation)",
+                        "n": n_au,
+                    }
+                )
     residual = out / "candidates" / "residual.tsv"
     if residual.is_file():
         rdf = _read_tsv(residual)
@@ -355,8 +361,7 @@ def render_report(
     lines = [
         "# TxNova report",
         "",
-        f"**{ctx['n_candidates']}** locus/loci in the final table. "
-        "This is a locus table, not a claim of new genes.",
+        f"**{ctx['n_candidates']}** locus/loci in the final table.",
         "",
         "## Run",
         "",
@@ -369,12 +374,7 @@ def render_report(
         f"- control / treat: {preflight.get('n_control', 0)} / {preflight.get('n_treat', 0)}",
         f"- {_threads_line(preflight)}",
         f"- DE: {'DESeq2-style (pydeseq2); keeps wald (padj+LFC) and low_count (independent-filtering NA); evaluated non-hits are dropped' if cfg.de.enabled else 'not run'}",
-        "- coding: "
-        + (
-            "hexamer LLR + Fickett; not CPAT; not a functional claim"
-            if cfg.coding.enabled
-            else "not run"
-        ),
+        "- coding: " + ("hexamer LLR + Fickett" if cfg.coding.enabled else "not run"),
         "- orphan: "
         + (
             "named_overlap=none: UCSC phyloP/phastCons + HMMER hmmscan/Pfam"
@@ -478,9 +478,9 @@ def render_report(
         extra = f" Showing {shown} with highest treat support." if shown < ctx["n_leaks"] else ""
         lines.append(
             f"**{ctx['n_leaks']}** treat-recurrent, control-silent splice junctions "
-            "that are either missing from `merged.gtf` (`unassembled`) or sit on a "
-            "class-u intron that did not become a candidate (`assembled_u`). "
-            "Known-gene introns are omitted. This is a recall check, not a gene list."
+            "missing from the annotation (`unassembled`). Known-gene introns are "
+            "omitted. `assembled_u` is unused because `merged.gtf` is the "
+            "annotation. This is a recall check, not a gene list."
             f"{extra} See `candidates/leak.tsv`."
         )
         lines.append("")
@@ -505,8 +505,8 @@ def render_report(
         lines.append(
             f"**{ctx['n_residuals']}** intergenic unassembled leak junctions "
             "clustered into locus hypotheses (shared splice site or a 30–20 kb "
-            "constitutive exon between adjacent introns). Terminal exons are a "
-            "terminal exons follow treat coverage from the splice site "
+            "constitutive exon between adjacent introns). Terminal exons "
+            "follow treat coverage from the splice site "
             "(2 kb cap). Residual loci are in `universe.gtf` and go through "
             "quantify, gates, and DE. This table is the locus-hypothesis "
             "list, not the final candidate table."
@@ -537,11 +537,9 @@ def render_report(
         )
         lines.append(
             f"**{ctx['n_ranked']}** structure-pass loci ranked by how gene-like they "
-            "are (CPAT/CPC2-style ORF + hexamer + Fickett; GENCODE-style spliced / "
-            "intergenic / not TE; penalties from the 6v6 screens: unplaced contig, "
-            "unsupported intron, gag/pol/MLV, intronless copy of a known protein). "
-            "phyloP + Pfam run only on the top 40, then the list is re-sorted. "
-            "This is not a claim they are genes."
+            "are (ORF + hexamer + Fickett; spliced / intergenic; penalties for "
+            "unplaced contig, unsupported intron, gag/pol/MLV, intronless copy of "
+            "a known protein). phyloP + Pfam on the top 40, then re-sorted."
             f"{extra} See `candidates/gene_rank.tsv`."
         )
         lines.append("")
@@ -569,9 +567,8 @@ def render_report(
         cols = ctx["orphan_cols"]
         lines.append(
             f"**{ctx['n_orphans']}** loci with `named_overlap=none`. "
-            "phyloP/phastCons are UCSC conservation on exons (not PhyloCSF; "
-            "that track is not on mm39). Pfam is HMMER hmmscan. "
-            "This is not a claim they are genes. See `candidates/orphan.tsv`."
+            "phyloP/phastCons are UCSC conservation on exons. "
+            "Pfam is HMMER hmmscan. See `candidates/orphan.tsv`."
         )
         lines.append("")
         lines.append("| " + " | ".join(cols) + " |")
@@ -596,11 +593,11 @@ def render_report(
             lines.append("| " + " | ".join(rec[c].replace("|", "\\|") for c in cols) + " |")
         lines += [
             "",
-            "`assembled_in` is which sample StringTie GTFs proposed the locus. "
-            "Junction and bridge counts are BAM CIGAR `N`, not StringTie. "
-            "`de_status=wald` is padj + LFC. `de_status=low_count` is "
-            "independent-filtering NA (Wald was computed); it is not a "
-            "significant padj.",
+            "`assembled_in` is unused with the residual assembler "
+            "(per-sample GTFs are stubs). Junction and bridge counts are "
+            "BAM CIGAR `N`. `de_status=wald` is padj + LFC. "
+            "`de_status=low_count` is independent-filtering NA (Wald was "
+            "computed); it is not a significant padj.",
             "",
         ]
     else:

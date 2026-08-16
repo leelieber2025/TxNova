@@ -13,8 +13,9 @@ output_dir/
 │   ├── merged.gtf               # gene/transcript/exon rows from the annotation
 │   └── universe.gtf             # merged.gtf + residual.gtf — the quantify universe
 ├── classify/
-│   ├── transcripts.class.tsv    # class code per merged transcript
-│   └── representatives.tsv      # one representative transcript per locus
+│   ├── transcripts.class.tsv    # class code per universe transcript
+│   ├── representatives.tsv      # one representative transcript per locus
+│   └── locus.class.tsv          # locus-level class (all isoforms of a gene_id)
 ├── quantify/
 │   ├── locus_tpm.tsv            # TPM, every locus in the universe
 │   ├── locus_counts.tsv         # raw counts, every locus in the universe
@@ -22,7 +23,7 @@ output_dir/
 ├── structure/
 │   └── structure.features.tsv   # splice canonicity, coverage, bridging, distances
 ├── candidates/
-│   ├── leak.tsv                 # treat-recurrent splices not explained by a candidate
+│   ├── leak.tsv                 # treat-recurrent, control-silent splices missing from the annotation
 │   ├── residual.tsv             # locus hypotheses built from leaked splices
 │   ├── residual.gtf
 │   ├── residual.stats.json      # n_loci / n_degenerate
@@ -73,7 +74,7 @@ locus you were expecting.
 | `nearest_gene_id` / `nearest_gene_name` / `nearest_distance_bp` / `nearest_strand` | Nearest **same-strand** annotated gene. |
 | `nearest_any_gene_id` / `nearest_any_gene_name` / `nearest_any_distance_bp` / `nearest_any_strand` | Nearest annotated gene on **either** strand. |
 | `named_gene_name` / `named_gene_id` / `named_gene_type` / `named_overlap` | Filled from `genome.naming_annotation` if configured; `named_overlap = none` means neither annotation could name it (these loci feed `orphan.tsv`). |
-| `canonical_splice_fraction` | Fraction of this locus's junctions that are canonical (GT-AG family). |
+| `canonical_splice_fraction` | Fraction of this locus's junctions that are GT-AG or GC-AG. |
 | `coverage_discontinuity` / `coverage_valley_mean` / `coverage_gap_mean` | Evidence for a real coverage gap between this locus and its neighbor. |
 | `control_max_tpm` / `treat_median_tpm` / `treat_n_detected` | Abundance gate inputs — see [`filters`](configuration.md#filters). |
 | `junction_support` / `junction_support_min` | BAM CIGAR `N`-based splice support. |
@@ -85,7 +86,7 @@ locus you were expecting.
 | `de_status` | `wald` = `padj` and `min_log2fc` both met. `low_count` = DESeq2 left `padj` as NA (independent filtering) but Wald `pvalue` exists and LFC meets `min_log2fc` — these **stay** in the final table. |
 | `de_pass` | Boolean; whether the row is in the final table because of DE (mirrors `de_status`). |
 | `longest_orf_aa`, `orf_complete` | Longest ORF found and whether it has both start and stop codons. |
-| `coding_score`, `fickett_score` | Hexamer log-likelihood and Fickett score (CPAT/CPC2-style features; **not** CPAT scores — don't compare to published CPAT cutoffs). |
+| `coding_score`, `fickett_score` | Hexamer log-likelihood and Fickett score. Published CPAT cutoffs do not apply. |
 | `coding_label` | `coding` / `noncoding` / ambiguous, from `coding.hexamer_coding_min` / `hexamer_noncoding_max` in [`coding`](configuration.md#coding). |
 
 Per-sample columns (`<sample_id>_junction_support`, `<sample_id>_bridge_read_count`,
@@ -98,34 +99,29 @@ All structure-pass loci (not just the final candidates), ranked by how
 gene-like they look — combining the ORF/hexamer/Fickett features above with
 GENCODE-style structural checks and penalties learned from manual review
 (unplaced contigs, zero-support "introns," retroviral gag/pol/MLV motifs,
-intronless copies of known proteins). Only the top rows get the network-backed
-`phylop_mean` / `pfam_*` columns (conservation and Pfam domain hits), after
-which the list is re-sorted. **This ranking is not a claim that a locus is a
-gene** — it's a triage aid for the loci most worth a manual look, especially
-useful when `candidates.tsv` is short or empty.
+intronless copies of known proteins). Stage 1 scores every row offline.
+Stage 2 fetches phyloP / Pfam on the top **40**, then re-sorts; the report
+shows the top **30**. Use this to decide which loci to look at by hand,
+especially when `candidates.tsv` is short.
 
 ## `candidates/orphan.tsv`
 
 Conservation (`phylop_mean`, `phylop_frac_pos`, `phastcons_mean` — UCSC
 tracks on exons, not PhyloCSF) and Pfam domain hits (EBI HMMER `hmmscan`,
 `pfam_name` / `pfam_evalue` / `pfam_desc`) for loci where neither annotation
-could supply a gene name (`named_overlap = none`). Same "not a gene claim"
-caveat as `gene_rank.tsv`.
+could supply a gene name (`named_overlap = none`).
 
 ## `candidates/leak.tsv` and `candidates/residual.tsv`
 
-**`leak.tsv`** is a recall check, not a candidate list: treat-recurrent,
-control-silent spliced junctions from the BAMs directly (CIGAR `N`) that
-are not annotated-gene introns (`status = unassembled`). Junctions inside
-known gene bodies are excluded. `assembled_u` is unused: `merged.gtf` is the
-annotation, so every merged intron is known.
+**`leak.tsv`** lists treat-recurrent, control-silent spliced junctions from
+the BAMs (CIGAR `N`) that are absent from the annotation
+(`status = unassembled`). Junctions inside known gene bodies are omitted.
 
-**`residual.tsv`** clusters those `unassembled` junctions into locus
-hypotheses (shared splice site, or a 30–20 kb constitutive exon between
-adjacent introns), clips terminals off gene bodies, and writes them into
-`assembly/universe.gtf`. They then take the same quantify → structure →
-gates → DE path as annotated genes. This table is the locus-hypothesis
-list, not the final candidate table.
+**`residual.tsv`** clusters those junctions into locus hypotheses (shared
+splice site, or a 30–20 kb constitutive exon between adjacent introns),
+clips terminals off gene bodies, and writes them into `assembly/universe.gtf`.
+They then take the same quantify → structure → gates → DE path as annotated
+genes.
 
 ## `fold/`
 
@@ -133,8 +129,7 @@ list, not the final candidate table.
 lookups for named loci, ESMFold predictions for unnamed peptides. Open
 `fold/index.html` for an interactive viewer (colored by pLDDT confidence);
 `fold/function.tsv` adds UniProt curated function (named loci) or Foldseek
-fold-similarity hits (unnamed loci — a fold match is evidence of a similar
-3D shape, not a measured activity). Only produced when `coding.enabled` and
+fold-similarity hits (unnamed loci). Only produced when `coding.enabled` and
 `coding.fold` are both `true`.
 
 ## `run.json`

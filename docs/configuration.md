@@ -13,7 +13,7 @@ directory the config file is in, not your current working directory.
 
 | Field | Type | Default | Meaning |
 |---|---|---|---|
-| `species` | string | `mouse` | Descriptive/provenance only; drives which packaged hexamer table `coding.hexamer_table: null` resolves to (currently mouse only). |
+| `species` | string | `mouse` | Provenance only. The packaged hexamer table is always mouse; this field does not switch tables. |
 | `output_dir` | path | `./txnova_out` | Everything TxNova writes goes under here. See [Output reference](outputs.md). |
 | `threads` | int ≥ 0 | `0` | `0` means "use up to the CPU ceiling"; the *live* number of parallel BAM workers is further capped by available memory at run time, not just this number. An explicit `N` is a hard ceiling, not a target. |
 | `genome` | object | — | Required. See [`genome`](#genome). |
@@ -42,7 +42,7 @@ residual loci), not just the final candidates.
 | Field | Type | Default | Meaning |
 |---|---|---|---|
 | `min_mapq` | int | `10` | Minimum mapping quality for a read to be counted. |
-| `require_unique_nh` | bool | `false` | If `true`, only count reads with `NH:i:1` (unique alignment); multi-mappers are dropped instead of down-weighted. |
+| `require_unique_nh` | bool | `false` | If `true`, drop reads unless `NH:i:1`. Multi-mappers are never down-weighted. |
 | `library_layout` | `auto` \| `paired` \| `single` | `auto` | `auto` detects paired vs. single-end per BAM during preflight. Set explicitly only if you want preflight to *reject* a BAM that doesn't match. |
 | `skip_duplicate` | `auto` \| `always` \| `never` | `auto` | Whether to skip reads flagged `0x400` (PCR/optical duplicate). `auto` counts all reads if preflight didn't see any duplicate-flagged reads in the BAM (i.e. you likely didn't mark duplicates), and skips them otherwise. |
 
@@ -55,9 +55,9 @@ DE and coding, which are separate stages).
 
 | Field | Type | Default | Meaning |
 |---|---|---|---|
-| `class` | `u` (fixed) | `u` | Not really configurable — `u` (fully intergenic) is the only supported value. Present for forward compatibility. |
+| `class` | `u` (fixed) | `u` | Only `u` (fully intergenic) is supported. |
 | `min_exons` | int ≥ 1 | `1` | Minimum exon count. `1` allows intronless loci through; the splice-canonicity gate below only applies when a locus actually has introns. |
-| `require_canonical_splice` | bool | `true` | Reject loci whose introns aren't canonical (GT-AG-family) splice sites, above the tolerance in `max_noncanonical_junction_fraction`. |
+| `require_canonical_splice` | bool | `true` | Reject loci whose scored introns are not **GT-AG or GC-AG** (transcript strand). AT-AC is not canonical here. |
 | `max_noncanonical_junction_fraction` | float [0, 1] | `0.0` | Fraction of a locus's junctions allowed to be non-canonical before it's rejected (with `require_canonical_splice: true`). `0.0` = zero tolerance. |
 | `min_nearest_same_strand_bp` | int ≥ 0 | `1000` | Minimum distance (bp) to the nearest same-strand annotated gene. Below this, a locus is treated as too close to be confidently intergenic. |
 | `require_coverage_discontinuity` | bool | `true` | Require a real coverage gap (valley) between the locus and its neighbor, not just annotation-based distance — guards against a locus that's actually the UTR/readthrough of an adjacent gene. |
@@ -80,21 +80,21 @@ the [FAQ](faq.md#candidatestsv-is-empty).
 
 ## `de`
 
-Differential expression on the locus-level count matrix, via
-[PyDESeq2](https://pydeseq2.readthedocs.io/). Runs after structural/detection
-gates, on the loci that survived them.
+[PyDESeq2](https://pydeseq2.readthedocs.io/) fits the **full** locus-count
+matrix (every universe locus) so size factors and FDR use the whole
+transcriptome. The DE *filter* then keeps only gate-passing loci.
 
 | Field | Type | Default | Meaning |
 |---|---|---|---|
 | `enabled` | bool | `true` | Set `false` to skip DE and take every gate-passing locus straight to coding/candidates (needs `de.enabled: false` if you have only 1 replicate per group, since DE needs ≥2 vs. ≥2 — preflight enforces this). |
 | `padj` | float (0, 1] | `0.05` | BH-adjusted p-value cutoff. |
-| `min_log2fc` | float | `0.5` | Minimum \|log2 fold change\| cutoff. |
+| `min_log2fc` | float | `0.5` | Minimum **signed** log2 fold change (treat minus control). Only treat-up loci pass. |
 
-A locus with `de_status = wald` passed both `padj` and `min_log2fc`. A locus
-with `de_status = low_count` was excluded by DESeq2's independent filtering
-(too low mean count to be testable) — it is *not* a rejected significance
-test, and is treated as a non-hit either way. See [Output
-reference](outputs.md#candidatestsv) for the full `de_status` semantics.
+A locus with `de_status = wald` met both `padj` and `min_log2fc`. A locus
+with `de_status = low_count` has `padj` NA (DESeq2 independent filtering) but
+a Wald `pvalue` and LFC ≥ `min_log2fc` — these **stay in the final table**.
+Evaluated non-hits (padj too large, or LFC too small) are dropped. See
+[Output reference](outputs.md#candidatestsv).
 
 ## `coding`
 
@@ -106,7 +106,7 @@ gate-(and DE-)passing loci. Runs after `filters` and `de`.
 | `enabled` | bool | `true` | Set `false` to skip the entire coding stage — `candidates.tsv` will still have structural/DE columns, just no ORF/coding/structure/conservation columns. |
 | `min_orf_aa` | int ≥ 1 | `50` | Minimum ORF length (amino acids) to be reported as `longest_orf_aa`; also the cutoff used by `require_orf`. |
 | `require_orf` | bool | `false` | If `true`, drop loci without a complete ORF of at least `min_orf_aa`. Off by default — many real intergenic loci are noncoding. |
-| `hexamer_coding_min` | float | `0.0` | Hexamer log-likelihood score above which a locus is called `coding_label = coding`. This is a hexamer LLR score, **not a CPAT score** — don't compare it to published CPAT cutoffs directly. |
+| `hexamer_coding_min` | float | `0.0` | Hexamer log-likelihood above which a locus is called `coding_label = coding`. Published CPAT cutoffs do not apply. |
 | `hexamer_noncoding_max` | float | `0.0` | Score at or below which a locus is called `noncoding`. Between `hexamer_noncoding_max` and `hexamer_coding_min` is ambiguous. |
 | `hexamer_table` | path or `null` | `null` | `null` uses the packaged mouse hexamer table (`python/txnova/data/Mouse_Hexamer.tsv`). Pass your own TSV to score a different species. |
 | `fold` | bool | `true` | Build 3D structure models for predicted ORFs — AlphaFold DB for named loci, ESMFold for unnamed ones. **Requires internet access.** Network failures are recorded as warnings, not fatal. |

@@ -1,6 +1,6 @@
 # Public mouse bulk smoke
 
-End-to-end check of TxNova on public 2-vs-2 polyA RNA-seq. Not a discovery paper. Large BAMs stay off git.
+End-to-end check of TxNova on public 2-vs-2 polyA RNA-seq. Large BAMs stay off git.
 
 ## Design
 
@@ -19,7 +19,14 @@ GitHub repo, not on this site.
 
 ## Funnel magnitude (this run)
 
-Counts, not IDs. Residual locus numbers (`RSDL.*`) can change across assembler versions.
+Counts, not IDs. Residual locus numbers (`RSDL.*`) can change across assembler
+versions. The table is an **early smoke** (thinner annotation; distance gate
+5 kb; unsigned `log2FC ≥ 2`). It is order of magnitude, not what a current
+run prints.
+
+Current software defaults: same-strand distance 1 kb; signed
+`min_log2fc: 0.5` (treat-up only); `de_status=low_count` (`padj` NA, Wald
+`pvalue` present, LFC ≥ 0.5) stays in the final table.
 
 | step | n |
 | --- | --- |
@@ -28,14 +35,13 @@ Counts, not IDs. Residual locus numbers (`RSDL.*`) can change across assembler v
 | class `u` transcripts | ~1 300 |
 | all-`u` loci | ~1 200 |
 | of which single-exon | ~88% |
-| multi-exon + canonical splice + ≥5 kb + coverage valley | ~80 |
+| multi-exon + canonical splice + distance + coverage valley | ~80 |
 | plus control-near-absent and treat-replicated | single digits |
-| after pydeseq2 (`padj < 0.05`, `log2FC ≥ 2`) | same single digits on this 2-vs-2 |
+| after pydeseq2 | same single digits on this 2-vs-2 |
 
-Most loci in the universe are known genes (`overlap`). Treat-specific *and*
-gene-like *and* intergenic is rare in Lipid A 8 h BMDM. That is the product,
-not a failed run. Numbers above are from an early smoke; re-run with the
-current assembler before quoting them.
+Most loci in the universe are known genes (`overlap`). Treat-specific
+intergenic loci are rare in Lipid A 8 h BMDM; a short table is expected.
+Re-run with the current assembler before quoting IDs or exact counts.
 
 ## What to trust on a passing row
 
