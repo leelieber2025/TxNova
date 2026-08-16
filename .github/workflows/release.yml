@@ -31,23 +31,36 @@ jobs:
       - uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          manylinux: auto
+          # 2_28 (AlmaLinux 8) has clang-devel; manylinux2014/CentOS 7 often does not.
+          manylinux: "2_28"
           args: --release --out dist
           sccache: "true"
           before-script-linux: |
-            # rust-htslib 0.47 pulls bindgen; manylinux needs libclang, not just clang.
-            if command -v yum >/dev/null; then
-              yum install -y zlib-devel bzip2-devel xz-devel clang clang-devel llvm-devel
-            elif command -v dnf >/dev/null; then
+            # rust-htslib enables hts-sys/bindgen. bindgen needs libclang.so at cargo time.
+            if command -v dnf >/dev/null; then
               dnf install -y zlib-devel bzip2-devel xz-devel clang clang-devel llvm-devel
+            elif command -v yum >/dev/null; then
+              yum install -y zlib-devel bzip2-devel xz-devel clang clang-devel llvm-devel \
+                || yum install -y zlib-devel bzip2-devel xz-devel llvm-toolset-7-clang \
+                  llvm-toolset-7-clang-devel
+              if [ -f /opt/rh/llvm-toolset-7/enable ]; then
+                # shellcheck disable=SC1091
+                source /opt/rh/llvm-toolset-7/enable
+              fi
             elif command -v apk >/dev/null; then
               apk add --no-cache zlib-dev bzip2-dev xz-dev clang clang-dev llvm-dev
             fi
-            CLANG_SO=$(find /usr -name 'libclang.so*' 2>/dev/null | head -1 || true)
-            if [ -n "$CLANG_SO" ]; then
-              export LIBCLANG_PATH="$(dirname "$CLANG_SO")"
-              echo "LIBCLANG_PATH=$LIBCLANG_PATH"
+            CLANG_SO=$(find /usr /opt /lib64 -name 'libclang.so*' 2>/dev/null | head -1 || true)
+            if [ -z "$CLANG_SO" ]; then
+              echo "libclang.so not found after package install" >&2
+              exit 1
             fi
+            export LIBCLANG_PATH="$(dirname "$CLANG_SO")"
+            if command -v llvm-config >/dev/null; then
+              export LLVM_CONFIG_PATH="$(command -v llvm-config)"
+            fi
+            echo "LIBCLANG_PATH=$LIBCLANG_PATH"
+            ls -l "$LIBCLANG_PATH"/libclang.so*
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-linux-${{ matrix.target }}
