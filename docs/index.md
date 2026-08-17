@@ -102,7 +102,7 @@ at least one control and one treat (≥2 each if DE is on), a FASTA with
 :::{note}
 TxNova is **0.1.x**. The documented interface is the CLI (`init`,
 `preflight`, `run`, `report`) and `config.yaml`. Pin the installed version
-in Methods (`txnova==0.1.3` for this tree). Cite
+in Methods (`txnova==0.1.5` for this tree). Cite
 [doi:10.5281/zenodo.21970482](https://doi.org/10.5281/zenodo.21970482).
 :::
 

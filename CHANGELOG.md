@@ -2,6 +2,10 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.1.5] - 2026-08-16
+
+- Version bump (0.1.3 already used)
+
 ## [0.1.3] - 2026-08-16
 
 ### Added

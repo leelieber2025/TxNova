@@ -67,12 +67,12 @@ Next: [Quickstart](https://txnova.readthedocs.io/en/latest/quickstart/) ·
 
 ## Status
 
-**0.1.x.** Pin `txnova==0.1.3` in Methods. [Changelog](CHANGELOG.md).
+**0.1.x.** Pin `txnova==0.1.5` in Methods. [Changelog](CHANGELOG.md).
 
 ## Citation
 
 For the software, cite the Zenodo DOI above. Pin the installed
-version in Methods (this tree is `txnova==0.1.3`). See `CITATION.cff`.
+version in Methods (this tree is `txnova==0.1.5`). See `CITATION.cff`.
 
 > Li, Z. TxNova. *Zenodo*. doi:10.5281/zenodo.21970482
 
