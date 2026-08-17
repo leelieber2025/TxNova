@@ -36,7 +36,7 @@ class FiltersConfig(_Strict):
     min_exons: int = Field(default=1, ge=1)
     require_canonical_splice: bool = True
     max_noncanonical_junction_fraction: float = Field(default=0.0, ge=0.0, le=1.0)
-    min_nearest_same_strand_bp: int = Field(default=1000, ge=0)
+    min_nearest_same_strand_bp: int = Field(default=500, ge=0)
     require_coverage_discontinuity: bool = True
     discontinuity_window_bp: int = Field(default=50, ge=1)
     discontinuity_valley_bp: int = Field(default=200, ge=1)

@@ -7,6 +7,7 @@ from pathlib import Path
 from txnova.residual import (
     apply_terminal_extents,
     clip_terminals_from_genes,
+    close_to_small_rna,
     cluster_leak,
     cluster_junctions,
     exon_structure,
@@ -496,3 +497,72 @@ def test_nearest_name_matches_min_distance() -> None:
     assert len(out) == 1
     assert str(out.iloc[0]["nearest_gene_name"]) == "Bar"
     assert float(out.iloc[0]["nearest_distance_bp"]) == 100
+
+
+def test_drops_micro_intron_keeps_50nt() -> None:
+    leak = pd.DataFrame(
+        [
+            _junc("chr1", 1000, 1035, "+"),  # 36 nt
+            _junc("chr2", 1000, 1049, "+"),  # 50 nt
+        ]
+    )
+    kept = select_junctions(leak)
+    assert set(kept["chrom"]) == {"chr2"}
+
+
+def test_drops_snrna_1bp_keeps_protein_1kb(tmp_path: Path) -> None:
+    gtf = tmp_path / "m39.gtf"
+    gtf.write_text(
+        'chr3\tX\tgene\t1102\t1200\t.\t-\t.\tgene_id "S"; gene_name "Gm24382"; gene_type "snRNA";\n'
+        'chr4\tX\tgene\t3000\t4000\t.\t+\t.\tgene_id "P"; gene_name "Far"; gene_type "protein_coding";\n',
+        encoding="utf-8",
+    )
+    genes = merge_gene_bodies([gtf])
+    assert close_to_small_rna("chr3", 1000, 1100, genes)
+    leak = pd.DataFrame(
+        [
+            _junc("chr3", 1000, 1100, "+"),  # 1 bp from snRNA
+            _junc("chr4", 1000, 1100, "+"),  # 1899 bp from protein
+        ]
+    )
+    out, _ = cluster_leak(leak, genes=genes)
+    assert set(out["chrom"]) == {"chr4"}
+
+
+def test_coverage_stub_terminal_is_degenerate() -> None:
+    df = pd.DataFrame(
+        [
+            {
+                "residual_id": "RSDL.1",
+                "locus_coord": "chr1:970-1230:+",
+                "chrom": "chr1",
+                "start": 970,
+                "end": 1230,
+                "strand": "+",
+                "n_junctions": 1,
+                "n_exons": 2,
+                "length_nt": 60,
+                "exon_structure": "970-999,1101-1230",
+                "intron_structure": "1000-1100",
+                "nearest_gene_name": "Far",
+                "nearest_distance_bp": 12000,
+                "control_max": 0,
+                "treat_sum": 8,
+                "treat_n_detected": 3,
+                "n_shared_site": 0,
+                "status": "unassembled",
+            }
+        ]
+    )
+    extents = pd.DataFrame(
+        [
+            {
+                "residual_id": "RSDL.1",
+                "left_start": 970,
+                "right_end": 1130,
+            }
+        ]
+    )
+    out, n_deg = apply_terminal_extents(df, extents)
+    assert out.empty
+    assert n_deg == 1

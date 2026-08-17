@@ -59,7 +59,7 @@ DE and coding, which are separate stages).
 | `min_exons` | int ≥ 1 | `1` | Minimum exon count. `1` allows intronless loci through; the splice-canonicity gate below only applies when a locus actually has introns. |
 | `require_canonical_splice` | bool | `true` | Reject loci whose scored introns are not **GT-AG or GC-AG** (transcript strand). AT-AC is not canonical here. |
 | `max_noncanonical_junction_fraction` | float [0, 1] | `0.0` | Fraction of a locus's junctions allowed to be non-canonical before it's rejected (with `require_canonical_splice: true`). `0.0` = zero tolerance. |
-| `min_nearest_same_strand_bp` | int ≥ 0 | `1000` | Minimum distance (bp) to the nearest same-strand annotated gene. Below this, a locus is treated as too close to be confidently intergenic. |
+| `min_nearest_same_strand_bp` | int ≥ 0 | `500` | Minimum distance (bp) to the nearest same-strand annotated gene. Below this, a locus is treated as too close to be confidently intergenic. |
 | `require_coverage_discontinuity` | bool | `true` | Require a real coverage gap (valley) between the locus and its neighbor, not just annotation-based distance — guards against a locus that's actually the UTR/readthrough of an adjacent gene. |
 | `discontinuity_window_bp` | int ≥ 1 | `50` | Window size (bp) used to sample coverage on either side of a candidate discontinuity. |
 | `discontinuity_valley_bp` | int ≥ 1 | `200` | Length (bp) of the low-coverage valley required between locus and neighbor. |
@@ -69,7 +69,7 @@ DE and coding, which are separate stages).
 | `reject_bridging_junction` | bool | `true` | Reject a locus if there's a spliced read bridging it to the nearest same-strand gene — that's evidence it's actually part of that gene's transcript, not a separate locus. |
 | `bridge_min_reads` | int ≥ 1 | `2` | Minimum spliced-bridge read count needed to trigger the rejection above. |
 | `transcript_min_nt` | int ≥ 1 | `100` | Minimum transcript length (nt) for a candidate. |
-| `control_max_tpm` | float ≥ 0 | `1.0` | Control-group **maximum** TPM must be **below** this. At or above → `candidates.unnamed.tsv` (also in control), not the treat-specific table. |
+| `control_max_tpm` | float ≥ 0 | `1.0` | Control-group **maximum** TPM must be **below** this for the **final** table. At or above → `candidates.unnamed.tsv` (also in control by interval TPM). Does not decide `candidates.shared.tsv` (that is a splice in both groups). |
 | `treat_detect_tpm` | float ≥ 0 | `0.1` | TPM threshold above which a treat sample counts as "detecting" the locus. |
 | `treat_min_detected_replicates` | int ≥ 1 | `2` | Minimum number of treat samples that must clear `treat_detect_tpm` ("recurrent in treat", not a one-off). Preflight also enforces this as a minimum sample count. |
 | `treat_median_tpm` | float ≥ 0 | `0.5` | Median TPM across treat samples must be at least this. |
@@ -109,8 +109,8 @@ gate-(and DE-)passing loci. Runs after `filters` and `de`.
 | `hexamer_coding_min` | float | `0.0` | Hexamer log-likelihood above which a locus is called `coding_label = coding`. Published CPAT cutoffs do not apply. |
 | `hexamer_noncoding_max` | float | `0.0` | Score at or below which a locus is called `noncoding`. Between `hexamer_noncoding_max` and `hexamer_coding_min` is ambiguous. |
 | `hexamer_table` | path or `null` | `null` | `null` uses the packaged mouse hexamer table (`python/txnova/data/Mouse_Hexamer.tsv`). Pass your own TSV to score a different species. |
-| `fold` | bool | `true` | Build 3D structure models for predicted ORFs — AlphaFold DB for named loci, ESMFold for unnamed ones. **Requires internet access.** Network failures are recorded as warnings, not fatal. |
-| `orphan` | bool | `true` | For loci with `named_overlap = none`, fetch UCSC conservation (phyloP/phastCons) and EBI HMMER/Pfam domain hits. **Requires internet access.** Same fail-soft behavior. |
+| `fold` | bool | `true` | Build 3D models for the **top 30** gene-like loci — AlphaFold DB for named loci, ESMFold for unnamed ones. **Requires internet access.** Network failures are recorded as warnings, not fatal. |
+| `orphan` | bool | `true` | Same top 30: UCSC conservation (phyloP/phastCons) and EBI HMMER/Pfam. **Requires internet access.** Same fail-soft behavior. |
 
 See [Installation § network access](installation.md#optional-network-access-for-structure-and-conservation)
 if you need to disable `fold`/`orphan` for an offline run.

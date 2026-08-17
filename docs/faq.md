@@ -3,7 +3,7 @@
 First run: [Quickstart](quickstart.md). Every config field:
 [Configuration reference](configuration.md). Output columns:
 [Output reference](outputs.md). Preparing BAMs:
-[Data preparation](data_preparation.md).
+[Data preparation](tutorials/t_prepare_bams.ipynb).
 
 ## `txnova._core is not built`
 
@@ -55,7 +55,7 @@ sample sets into separate runs, or re-align the outliers.
 These two columns accept exactly those literal strings — no `wt`/`ko`/`case`
 aliases for `group`, and strandedness must be spelled `unstranded`, `fr`, or
 `rf`. See [Data preparation § figure out
-strandedness](data_preparation.md#5-figure-out-strandedness) if you're not
+strandedness](tutorials/t_prepare_bams.ipynb#5-figure-out-strandedness) if you're not
 sure which of `fr`/`rf` your library is.
 
 ## `de.enabled requires ≥2 control and ≥2 treat`
@@ -67,9 +67,15 @@ without a DE filter. See [`de`](configuration.md#de).
 
 ## `candidates.tsv` is empty
 
+An empty **final** table is not the same as an empty run. Look at
+`candidates.unnamed.tsv` (structure-pass, also in control by TPM) and
+`candidates.shared.tsv` (structure-pass, splice in both groups) first.
+Those two are both-group unannotated structure, not induction. See
+[Output reference § the three tables](outputs.md#the-three-tables).
+
 Many 2-vs-2/3-vs-3 designs produce zero or a handful of intergenic,
 treat-specific loci (see [Public mouse smoke test](PUBLIC_MOUSE.md)). To see
-which stage cut the count:
+which stage cut the **final** count:
 
 1. Open `report/report.md` (or `.html`) and read the **Funnel** section —
    it shows counts at every stage (merged transcripts → class `u` →
@@ -84,10 +90,11 @@ which stage cut the count:
    first — most commonly `control_max_tpm`, `treat_detect_tpm`,
    `treat_median_tpm`, or the `discontinuity_*` group.
 4. `candidates/residual.tsv` and `candidates/leak.tsv` are the splice
-   harvest: treat-recurrent, control-silent CIGAR `N` junctions not in the
-   annotation. A locus with strong `treat_sum` there but nothing in
-   `candidates.tsv` failed a later gate — look at length, splice, distance,
-   or control TPM.
+   harvest: treat-recurrent CIGAR `N` junctions not in the annotation
+   (`cohort=silent` or `shared`). A silent locus with strong `treat_sum`
+   but nothing in `candidates.tsv` failed a later gate — look at length,
+   splice, distance, or control TPM. Both-group splices land in
+   `candidates.shared.tsv` when they pass structure gates.
 
 ## Unknown field / extra keys error from `config.yaml`
 
@@ -106,7 +113,7 @@ genes look intergenic.
 `genome.naming_annotation` is optional. It fills `named_gene_name` /
 `named_overlap` for class-`u` loci that `annotation` left blank, and residual
 harvest also uses it for the 200 nt same-strand knife. It does not change
-class `u` or the 1 kb distance gate. If `annotation` is already comprehensive,
+class `u` or the 500 bp distance gate. If `annotation` is already comprehensive,
 you usually do not need it.
 
 ## Are locus IDs stable across runs?
@@ -132,7 +139,8 @@ pip install -e ".[dev]"
 Both make outbound calls to public APIs (AlphaFold DB, ESMFold, UniProt,
 UCSC, EBI HMMER) and are on by default. They're fail-soft — a network error
 is recorded as a warning, not a fatal error — but on a slow connection or an
-offline cluster node they add real wall-clock time. Set `coding.fold: false`
+offline cluster node they add real wall-clock time. Only the top 30
+gene-like loci are folded. Set `coding.fold: false`
 and/or `coding.orphan: false` in `config.yaml` to skip them. See
 [Configuration reference § coding](configuration.md#coding).
 
@@ -167,7 +175,7 @@ first.
 
 The most common cause is a wrong `strandedness` value in `samples.tsv` —
 TxNova doesn't infer it from the BAM. See [Data preparation § figure out
-strandedness](data_preparation.md#5-figure-out-strandedness) to verify it
+strandedness](tutorials/t_prepare_bams.ipynb#5-figure-out-strandedness) to verify it
 empirically before re-running.
 
 ## What does a `coding_label = coding` call actually mean?

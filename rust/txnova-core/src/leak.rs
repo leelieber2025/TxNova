@@ -1,5 +1,6 @@
-//! Residual splice census: treat-recurrent, control-silent CIGAR `N`
-//! junctions that are not annotated-gene introns in the merge.
+//! Residual splice census: treat-recurrent CIGAR `N` junctions that are
+//! not annotated-gene introns. `cohort=silent` is control-absent;
+//! `cohort=shared` is also present in control.
 
 use crate::bam;
 use crate::coverage::{cigar_introns, inferred_strand, pass_read};
@@ -356,14 +357,17 @@ pub fn leak_scan(
             .map(|m| *m.get(&key).unwrap_or(&0))
             .collect();
         let control_max = ctrl_idx.iter().map(|&i| counts[i]).max().unwrap_or(0);
+        let control_n = ctrl_idx.iter().filter(|&&i| counts[i] > 0).count();
         let treat_sum: u64 = treat_idx.iter().map(|&i| counts[i]).sum();
         let treat_n = treat_idx.iter().filter(|&&i| counts[i] > 0).count();
-        if control_max > cfg.max_control_support {
-            continue;
-        }
         if treat_n < cfg.treat_min_samples || treat_sum < cfg.min_treat_support {
             continue;
         }
+        let cohort = if control_max <= cfg.max_control_support {
+            "silent"
+        } else {
+            "shared"
+        };
         let hits = intron_ix
             .get(&(key.chrom.clone(), key.start, key.end, key.strand))
             .cloned()
@@ -415,6 +419,8 @@ pub fn leak_scan(
             control_max.to_string(),
             treat_sum.to_string(),
             treat_n.to_string(),
+            control_n.to_string(),
+            cohort.to_string(),
         ];
         for c in &counts {
             row.push(c.to_string());
@@ -439,6 +445,8 @@ pub fn leak_scan(
         "control_max".into(),
         "treat_sum".into(),
         "treat_n_detected".into(),
+        "control_n_detected".into(),
+        "cohort".into(),
     ];
     for s in &samples.samples {
         header.push(format!("{}_count", s.sample_id));

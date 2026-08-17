@@ -302,9 +302,13 @@ def annotate_orphans(
     min_orf_aa: int = 50,
     fetch: FetchFn | None = None,
     scan: ScanFn | None = None,
+    only: Iterable[str] | None = None,
 ) -> pd.DataFrame:
     frames = [pd.read_csv(p, sep="\t") for p in tables if p.is_file()]
     src = collect_orphan_rows(frames)
+    if only is not None and not src.empty and "locus_id" in src.columns:
+        wanted = {str(x) for x in only}
+        src = src.loc[src["locus_id"].astype(str).isin(wanted)].copy()
     if not src.empty and "longest_orf_aa" in src.columns:
         aa = pd.to_numeric(src["longest_orf_aa"], errors="coerce").fillna(0)
         src = src.loc[aa >= min_orf_aa].copy()

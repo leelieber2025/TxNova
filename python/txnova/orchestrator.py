@@ -23,12 +23,13 @@ from txnova.fold import fold_peptides
 from txnova.function import annotate_structures
 from txnova.naming import label_candidate_file, load_gene_bodies
 from txnova.orphan import annotate_orphans
-from txnova.leak import LEAK_FILENAME, annotate_leak
+from txnova.leak import LEAK_FILENAME, SHARED_FILENAME, annotate_leak, write_shared
 from txnova.residual import (
     CLOSE_SAME_STRAND_NT,
     MAX_EXON_NT,
     MAX_TERMINAL_NT,
     MIN_EXON_NT,
+    MIN_INTRON_NT,
     MIN_TERMINAL_NT,
     RESIDUAL_FILENAME,
     RESIDUAL_GTF,
@@ -37,7 +38,7 @@ from txnova.residual import (
     write_residuals,
     write_universe_gtf,
 )
-from txnova.gene_score import GENE_RANK_FILENAME, REPORT_N, write_gene_rank
+from txnova.gene_score import GENE_RANK_FILENAME, REPORT_N, top_rank_ids, write_gene_rank
 from txnova.logging import get_logger
 from txnova.preflight import require_ok, run_preflight, write_preflight_json
 from txnova.provenance import build_run_json, write_run_json
@@ -241,6 +242,7 @@ def _run_discovery(
             "treat_min_samples": cfg.filters.treat_min_detected_replicates,
             "min_treat_support": 2,
             "max_control_support": 0,
+            "cohorts": ["silent", "shared"],
         },
     }
     if not (stamp_matches(stamps / "leak.json", leak_scan_fp) and leak_path.is_file()):
@@ -282,6 +284,8 @@ def _run_discovery(
             "terminal": "treat_coverage",
             "either_strand_gene_body": True,
             "close_same_strand_nt": CLOSE_SAME_STRAND_NT,
+            "min_intron_nt": MIN_INTRON_NT,
+            "small_rna_nt": CLOSE_SAME_STRAND_NT,
         },
     }
     if not (
@@ -478,11 +482,20 @@ def _run_discovery(
 
     _apply_naming(cfg, rows, [unnamed_path, gates_path, de_view])
 
+    shared_path = cand_dir / SHARED_FILENAME
+    write_shared(
+        residual=residual_path,
+        structure_tables=[unnamed_path, gates_path],
+        dest=shared_path,
+    )
+    _apply_naming(cfg, rows, [shared_path])
+
     annotate_leak(
         leak_path,
         gates=gates_path,
         unnamed=unnamed_path,
         candidates=de_view,
+        shared=shared_path,
     )
 
     if cfg.coding.enabled:
@@ -528,63 +541,16 @@ def _run_discovery(
             write_stamp(stamps / "coding.json", coding_fp)
         else:
             log.info("stamp hit coding")
-        if cfg.coding.fold:
-            fold_dir = out / "fold"
-            peptides_fa = cand_dir / "peptides.fa"
-            fold_fp = {
-                **fp_base,
-                "step": "fold",
-                "inputs": path_fingerprint([peptides_fa, unnamed_path, cand_path]),
-                "cfg": {"min_orf_aa": cfg.coding.min_orf_aa, "fold": True},
-            }
-            if not (
-                stamp_matches(stamps / "fold.json", fold_fp) and (fold_dir / "index.html").is_file()
-            ):
-                fold_peptides(
-                    peptides_fa,
-                    [unnamed_path, cand_path],
-                    fold_dir,
-                    species=cfg.species,
-                    min_aa=cfg.coding.min_orf_aa,
-                )
-                write_stamp(stamps / "fold.json", fold_fp)
-            else:
-                log.info("stamp hit fold")
-            fn_fp = {
-                **fp_base,
-                "step": "function",
-                "inputs": path_fingerprint([fold_dir / "structures.tsv"]),
-            }
-            if not (
-                stamp_matches(stamps / "function.json", fn_fp)
-                and (fold_dir / "function.tsv").is_file()
-            ):
-                annotate_structures(fold_dir)
-                write_stamp(stamps / "function.json", fn_fp)
-            else:
-                log.info("stamp hit function")
-        if cfg.coding.orphan:
-            orphan_path = cand_dir / "orphan.tsv"
-            peptides_fa = cand_dir / "peptides.fa"
-            orphan_fp = {
-                **fp_base,
-                "step": "orphan",
-                "inputs": path_fingerprint(
-                    [p for p in (unnamed_path, cand_path, peptides_fa) if p.is_file()]
-                ),
-                "cfg": {"orphan": True, "assembly": cfg.genome.assembly},
-            }
-            if not (stamp_matches(stamps / "orphan.json", orphan_fp) and orphan_path.is_file()):
-                annotate_orphans(
-                    [unnamed_path, cand_path],
-                    peptides_fa if peptides_fa.is_file() else None,
-                    orphan_path,
-                    assembly=cfg.genome.assembly,
-                    min_orf_aa=cfg.coding.min_orf_aa,
-                )
-                write_stamp(stamps / "orphan.json", orphan_fp)
-            else:
-                log.info("stamp hit orphan")
+        orfs_tsv = cand_dir / "orfs.tsv"
+        if shared_path.is_file() and orfs_tsv.is_file():
+            _join_coding(
+                cfg,
+                shared_path,
+                orfs_tsv,
+                shared_path,
+                rows,
+                filter_orf=False,
+            )
     else:
         _copy_candidate_view(coding_src, cand_path, rows)
 
@@ -606,6 +572,66 @@ def _run_discovery(
         write_stamp(stamps / "gene_rank.json", rank_fp)
     else:
         log.info("stamp hit gene_rank")
+    fold_loci = top_rank_ids(rank_path, REPORT_N)
+
+    if cfg.coding.enabled and cfg.coding.fold:
+        fold_dir = out / "fold"
+        peptides_fa = cand_dir / "peptides.fa"
+        fold_fp = {
+            **fp_base,
+            "step": "fold",
+            "inputs": path_fingerprint([peptides_fa, rank_path]),
+            "cfg": {"min_orf_aa": cfg.coding.min_orf_aa, "fold": True, "top_n": REPORT_N},
+        }
+        if not (
+            stamp_matches(stamps / "fold.json", fold_fp) and (fold_dir / "index.html").is_file()
+        ):
+            fold_peptides(
+                peptides_fa,
+                [unnamed_path, cand_path],
+                fold_dir,
+                species=cfg.species,
+                min_aa=cfg.coding.min_orf_aa,
+                only=fold_loci,
+            )
+            write_stamp(stamps / "fold.json", fold_fp)
+        else:
+            log.info("stamp hit fold")
+        fn_fp = {
+            **fp_base,
+            "step": "function",
+            "inputs": path_fingerprint([fold_dir / "structures.tsv"]),
+        }
+        if not (
+            stamp_matches(stamps / "function.json", fn_fp) and (fold_dir / "function.tsv").is_file()
+        ):
+            annotate_structures(fold_dir)
+            write_stamp(stamps / "function.json", fn_fp)
+        else:
+            log.info("stamp hit function")
+    if cfg.coding.enabled and cfg.coding.orphan:
+        orphan_path = cand_dir / "orphan.tsv"
+        peptides_fa = cand_dir / "peptides.fa"
+        orphan_fp = {
+            **fp_base,
+            "step": "orphan",
+            "inputs": path_fingerprint(
+                [p for p in (rank_path, unnamed_path, cand_path, peptides_fa) if p.is_file()]
+            ),
+            "cfg": {"orphan": True, "assembly": cfg.genome.assembly, "top_n": REPORT_N},
+        }
+        if not (stamp_matches(stamps / "orphan.json", orphan_fp) and orphan_path.is_file()):
+            annotate_orphans(
+                [unnamed_path, cand_path],
+                peptides_fa if peptides_fa.is_file() else None,
+                orphan_path,
+                assembly=cfg.genome.assembly,
+                min_orf_aa=cfg.coding.min_orf_aa,
+                only=fold_loci,
+            )
+            write_stamp(stamps / "orphan.json", orphan_fp)
+        else:
+            log.info("stamp hit orphan")
 
     write_final_transcripts(class_tsv, cand_path, cand_dir / "transcripts.tsv")
 

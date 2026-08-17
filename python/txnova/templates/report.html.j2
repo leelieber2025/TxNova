@@ -105,17 +105,17 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
   </tbody>
 </table>
 </div>
-<p class="note">Annotation plus residual splice loci form the quantify universe. Residual loci cluster treat-specific BAM splices missing from the annotation. Class <code>u</code> is a negative definition. Counts and junctions are recomputed from the BAM.</p>
+<p class="note">Annotation plus residual splice loci form the quantify universe. Residual loci cluster treat-recurrent BAM splices missing from the annotation (control-silent and both-group). Class <code>u</code> is a negative definition. Counts and junctions are recomputed from the BAM.</p>
 {% endif %}
 
 {% if has_structures %}
 <h2>Structures</h2>
-<p class="note">3D models for ORFs: named loci from AlphaFold DB, unnamed peptides from ESMFold. Colour is pLDDT (blue = confident). Open <code>fold/index.html</code>.</p>
+<p class="note">3D models for the top 30 gene-like loci: named loci from AlphaFold DB, unnamed peptides from ESMFold. Colour is pLDDT (blue = confident). Open <code>fold/index.html</code>.</p>
 {% endif %}
 
 <h2>Leak (BAM splice not in the candidate path)</h2>
 {% if leaks %}
-<p class="note">{{ n_leaks }} treat-recurrent, control-silent splice junctions missing from the annotation (<code>unassembled</code>). Known-gene introns are omitted. <code>assembled_u</code> is unused because <code>merged.gtf</code> is the annotation.{% if leaks and n_leaks > leaks|length %} Showing {{ leaks|length }} with highest treat support.{% endif %} See <code>candidates/leak.tsv</code>.</p>
+<p class="note">{{ n_leaks }} treat-recurrent splice junctions missing from the annotation (<code>unassembled</code>). <code>cohort=silent</code> is absent from control; <code>cohort=shared</code> is also in control. Known-gene introns are omitted.{% if leaks and n_leaks > leaks|length %} Showing {{ leaks|length }} with highest treat support.{% endif %} See <code>candidates/leak.tsv</code>.</p>
 <div class="wrap">
 <table>
   <thead>
@@ -133,12 +133,12 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 </table>
 </div>
 {% else %}
-<p>No treat-specific residual splices. See <code>candidates/leak.tsv</code>.</p>
+<p>No treat-recurrent residual splices. See <code>candidates/leak.tsv</code>.</p>
 {% endif %}
 
 <h2>Residual splice loci</h2>
 {% if residuals %}
-<p class="note">{{ n_residuals }} intergenic unassembled leak junctions clustered into locus hypotheses (shared splice site or a 30–20 kb constitutive exon between adjacent introns). Terminal exons follow treat coverage from the splice site (2 kb cap). Residual loci are in <code>universe.gtf</code> and go through quantify, gates, and DE. This table is the locus-hypothesis list, not the final candidate table.{% if residuals and n_residuals > residuals|length %} Showing {{ residuals|length }} with most junctions.{% endif %} See <code>candidates/residual.tsv</code>.</p>
+<p class="note">{{ n_residuals }} intergenic unassembled leak junctions clustered into locus hypotheses (shared splice site or a 30–20 kb constitutive exon between adjacent introns). Includes control-silent and both-group splices (<code>cohort</code>). Terminal exons follow treat coverage from the splice site (2 kb cap). Residual loci are in <code>universe.gtf</code> and go through quantify, gates, and DE. This table is the locus-hypothesis list, not the final candidate table.{% if residuals and n_residuals > residuals|length %} Showing {{ residuals|length }} with most junctions.{% endif %} See <code>candidates/residual.tsv</code>.</p>
 <div class="wrap">
 <table>
   <thead>
@@ -182,7 +182,29 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 <p>No gene-like ranking. See <code>candidates/gene_rank.tsv</code>.</p>
 {% endif %}
 {% if n_unnamed %}
-<p class="note">{{ n_unnamed }} structure-pass loci are also in control (<code>candidates/candidates.unnamed.tsv</code>). They are included in the rank.</p>
+<p class="note">{{ n_unnamed }} structure-pass loci are also in control by TPM (<code>candidates/candidates.unnamed.tsv</code>). They are included in the rank.</p>
+{% endif %}
+{% if n_shared %}
+<h2>Shared splice (both groups)</h2>
+<p class="note">{{ n_shared }} structure-pass unannotated loci whose harvest junctions are also in control. This is not the treat-specific final table. See <code>candidates/candidates.shared.tsv</code>.</p>
+{% if shared %}
+<div class="wrap">
+<table>
+  <thead>
+    <tr>
+    {% for col in shared_cols %}<th>{{ col }}</th>{% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+  {% for rec in shared %}
+    <tr>
+    {% for col in shared_cols %}<td>{{ rec[col] }}</td>{% endfor %}
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
 {% endif %}
 
 <h2>Orphan (no gene name)</h2>

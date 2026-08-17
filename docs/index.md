@@ -1,31 +1,25 @@
 # TxNova Documentation
 
-[![Documentation](https://readthedocs.org/projects/txnova/badge/?version=latest)](https://txnova.readthedocs.io/en/latest/)
+[![PyPI version](https://img.shields.io/pypi/v/txnova.svg)](https://pypi.org/project/txnova/)
+[![PyPI downloads](https://img.shields.io/pepy/dt/txnova.svg)](https://pepy.tech/project/txnova)
+[![Python versions](https://img.shields.io/pypi/pyversions/txnova.svg)](https://pypi.org/project/txnova/)
+[![CI](https://github.com/leelieber2025/TxNova/actions/workflows/ci.yml/badge.svg)](https://github.com/leelieber2025/TxNova/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/leelieber2025/TxNova/blob/main/LICENSE)
-
-```{toctree}
-:maxdepth: 1
-:hidden:
-
-installation
-quickstart
-data_preparation
-configuration
-outputs
-faq
-PUBLIC_MOUSE
-license
-```
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21970482.svg)](https://doi.org/10.5281/zenodo.21970482)
 
 ## What TxNova does
 
-TxNova finds **experimental-group-specific novel intergenic transcripts** from
-bulk RNA-seq. Input is aligned BAMs. Output is a candidate table and a report.
+TxNova finds **experimental-group-specific novel intergenic transcripts**
+from bulk RNA-seq BAMs. Treat-recurrent residual splices become locus
+models. Class, counts, junctions, and bridges are recomputed from the BAM
+and the annotation.
 
-Treat-recurrent residual splices become locus models. Class, counts, junctions,
-and splice-bridging evidence are recomputed from the BAM and the annotation.
-
-## The pipeline, in one picture
+| Step | What it does |
+|------|----------------|
+| Harvest | Treat-recurrent CIGAR `N` junctions missing from the annotation → residual loci |
+| Universe | Annotation + residual models, counted together |
+| Gates | Structure, detection, optional DE |
+| Tables | Treat-specific finals; both-group structure-pass (TPM and shared splice) |
 
 ```text
  coordinate-sorted, indexed BAMs (STAR / HISAT2)
@@ -37,7 +31,7 @@ and splice-bridging evidence are recomputed from the BAM and the annotation.
              │
              ▼
     ┌──────────────────────┐
-    │ 2. Leak + residual     │  treat-recurrent, control-silent CIGAR N
+    │ 2. Leak + residual     │  treat-recurrent CIGAR N (silent + shared)
     │                        │  clustered into RSDL loci; clip off gene bodies
     └──────────────────────┘
              │
@@ -59,56 +53,145 @@ and splice-bridging evidence are recomputed from the BAM and the annotation.
              │  optional
              ▼
     ┌──────────────────────┐
-    │ 6. Coding              │  ORF, hexamer LLR, Fickett; fold / orphan
+    │ 6. Coding              │  ORF, hexamer LLR, Fickett; fold top 30
     └──────────────────────┘
 ```
 
-Per-sample GTFs are stubs. Leak and quantify scan the BAMs.
+Per-sample GTFs are stubs. Leak and quantify scan the BAMs. The run writes
+three structure-pass tables, not one: treat-specific finals, unnamed (also
+in control by TPM), and shared (splice in both groups).
 
 ## Where to go
 
 | Goal | Page |
 |------|------|
-| Install (`pip install txnova`) | [Installation](installation.md) |
-| Run your first analysis end to end | [Quickstart](quickstart.md) |
-| Turn raw FASTQs into a TxNova-ready BAM | [Data preparation](data_preparation.md) |
-| Every `config.yaml` field, what it does, and its default | [Configuration reference](configuration.md) |
-| What's in `output_dir/` and what each column means | [Output reference](outputs.md) |
-| Errors, empty tables, and common gotchas | [FAQ / Troubleshooting](faq.md) |
-| A worked public-data example (ENCODE BMDM ± Lipid A) | [Public mouse smoke test](PUBLIC_MOUSE.md) |
+| Install and run a first analysis | {doc}`installation` → {doc}`quickstart` |
+| Turn raw FASTQs into a TxNova-ready BAM | {doc}`tutorials/t_prepare_bams` |
+| Every `config.yaml` field | {doc}`configuration` |
+| What each output file and column means | {doc}`outputs` |
+| Empty tables and preflight errors | {doc}`faq` |
+| Public mouse smoke (ENCODE BMDM ± Lipid A) | {doc}`PUBLIC_MOUSE` |
+| Ranked loci, exon maps, fold viewer | {doc}`tutorials/index` |
+| Changelog | {doc}`changelog` |
 
-## The three commands
+### A sensible path
+
+1. Install: `pip install txnova`.
+2. Follow {doc}`quickstart`.
+3. If you still have FASTQ, align first ({doc}`tutorials/t_prepare_bams`).
+4. Open `report/report.html`, then the three tables in {doc}`outputs`.
+5. Worked tables and the fold viewer: {doc}`tutorials/index`.
+
+### Default call
 
 ```bash
-txnova init -c config.yaml --samples samples.tsv   # write starter files
-txnova preflight -c config.yaml                     # validate BAMs/FASTA/GTF/sample sheet
-txnova run -c config.yaml                            # leak → residual → classify → quantify → gate → (DE, coding)
+txnova init -c config.yaml --samples samples.tsv
+# edit paths, strandedness (rf / fr / unstranded), and sample rows
+txnova preflight -c config.yaml
+txnova run -c config.yaml
 ```
 
-`txnova preflight` is cheap and catches most mistakes (mismatched contigs,
-un-indexed BAMs, mixed aligners, wrong `group`/`strandedness` values) before
-you spend time scanning BAMs. `txnova run` runs preflight again automatically.
-There is also `txnova report` to rebuild Markdown/HTML from an existing run.
+`txnova preflight` is cheap and catches mismatched contigs, missing indexes,
+mixed aligners, and bad `group` / `strandedness` values. `txnova run` runs
+preflight again. `txnova report` rebuilds Markdown/HTML from an existing run.
 
-## What you need before you start
+You need coordinate-sorted, indexed BAMs from STAR or HISAT2 (not a mix),
+at least one control and one treat (≥2 each if DE is on), a FASTA with
+`.fai`, and a GTF whose seqnames match the BAM `@SQ` lines.
 
-- Coordinate-sorted, **indexed** BAMs from **STAR** or **HISAT2** (not a mix
-  of both), at least 1 control and 1 treat sample (≥2 each if you want
-  differential expression).
-- A genome FASTA (with a `.fai` index) and a matching GTF annotation whose
-  contig names agree with the BAM's `@SQ` lines.
+:::{note}
+TxNova is **0.1.x**. The documented interface is the CLI (`init`,
+`preflight`, `run`, `report`) and `config.yaml`. Pin the installed version
+in Methods (`txnova==0.1.3` for this tree). Cite
+[doi:10.5281/zenodo.21970482](https://doi.org/10.5281/zenodo.21970482).
+:::
 
-TxNova starts from BAMs you already aligned.
+::::{grid} 1 2 3 3
+:gutter: 2
 
-## Status
+:::{grid-item-card} Installation {octicon}`plug;1em;`
+:link: installation
+:link-type: doc
 
-TxNova is `0.1.0`, pre-release, mouse-first (`species: mouse`; the packaged
-hexamer table is mouse). Install with `pip install txnova` (see
-[Installation](installation.md)). The CLI surface (`init`,
-`preflight`, `run`, `report`) and the `config.yaml` schema are the stable,
-documented interface; the Python modules under `txnova.*` are internal.
+`pip install txnova`; source build if you develop.
+:::
 
-## Author
+:::{grid-item-card} Quickstart {octicon}`rocket;1em;`
+:link: quickstart
+:link-type: doc
 
-**Zhao Li (李钊)**  
-Email: [leelieber@gmail.com](mailto:leelieber@gmail.com)
+First run after install.
+:::
+
+:::{grid-item-card} Data preparation {octicon}`database;1em;`
+:link: tutorials/t_prepare_bams
+:link-type: doc
+
+STAR / HISAT2 recipes; preflight on fixtures.
+:::
+
+:::{grid-item-card} Configuration {octicon}`gear;1em;`
+:link: configuration
+:link-type: doc
+
+Every YAML field and default.
+:::
+
+:::{grid-item-card} Outputs {octicon}`table;1em;`
+:link: outputs
+:link-type: doc
+
+The three tables and column meanings.
+:::
+
+:::{grid-item-card} FAQ {octicon}`question;1em;`
+:link: faq
+:link-type: doc
+
+Preflight errors and empty tables.
+:::
+
+:::{grid-item-card} Tutorials {octicon}`play;1em;`
+:link: tutorials/index
+:link-type: doc
+
+GSE221720 rank, exon maps, 3Dmol viewer.
+:::
+
+:::{grid-item-card} Public mouse {octicon}`beaker;1em;`
+:link: PUBLIC_MOUSE
+:link-type: doc
+
+ENCODE BMDM smoke test.
+:::
+
+:::{grid-item-card} License {octicon}`law;1em;`
+:link: license
+:link-type: doc
+
+Apache-2.0 and hexamer table.
+:::
+
+:::{grid-item-card} GitHub {octicon}`mark-github;1em;`
+:link: https://github.com/leelieber2025/TxNova
+
+Source and issues.
+:::
+::::
+
+```{toctree}
+:hidden: true
+:maxdepth: 1
+:titlesonly: true
+
+installation
+quickstart
+tutorials/index
+configuration
+outputs
+faq
+PUBLIC_MOUSE
+changelog
+license
+GitHub <https://github.com/leelieber2025/TxNova>
+```

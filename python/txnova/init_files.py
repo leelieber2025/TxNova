@@ -30,7 +30,7 @@ filters:
   min_exons: 1              # intronless genes are allowed; splice gate only if n_introns>0
   require_canonical_splice: true
   max_noncanonical_junction_fraction: 0.0
-  min_nearest_same_strand_bp: 1000
+  min_nearest_same_strand_bp: 500
   require_coverage_discontinuity: true
   discontinuity_window_bp: 50
   discontinuity_valley_bp: 200

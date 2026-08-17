@@ -1,11 +1,14 @@
 """Protein 3D models for ORFs — AlphaFold DB if named, ESMFold if not.
 
-Visualization is a standalone HTML page with 3Dmol.js, coloured by the
-AlphaFold pLDDT bands (same palette as omicverse.mol.view). No docking.
+Visualization is 3Dmol.js, coloured by the AlphaFold pLDDT bands (same
+palette as omicverse.mol.view). The pipeline writes a standalone HTML
+page; notebooks and the docs site use the same inline fragment py3Dmol
+emits (load 3Dmol from jsDelivr, persist in exported HTML). No docking.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import urllib.error
@@ -28,6 +31,9 @@ UNIPROT_SEARCH = (
     "?query={query}&fields=accession,gene_primary&format=json&size=1"
 )
 ESMFOLD_MAX_AA = 400
+# Same CDN pin as py3Dmol 2.x — jsDelivr is allowed on Read the Docs;
+# 3Dmol.org is often blocked by the site CSP.
+THREEDMOL_JS = "https://cdn.jsdelivr.net/npm/3dmol@2.5.5/build/3Dmol-min.js"
 _UNIPROT_RE = re.compile(
     r"^[OPQ][0-9][A-Z0-9]{3}[0-9]$|^[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}$"
 )
@@ -156,6 +162,120 @@ def predict_esmfold(sequence: str, dest: Path) -> str:
     return dest.read_text(encoding="utf-8", errors="replace")
 
 
+def _plddt_legend() -> str:
+    return " · ".join(f'<span style="color:{c}">{lab}</span>' for _, _, c, lab in PLDDT_BANDS)
+
+
+def render_structure_embed(
+    *,
+    title: str,
+    pdb_text: str,
+    source: str,
+    mean_plddt: float | None,
+    note: str = "",
+    width: int | str = "100%",
+    height: int | str = 520,
+    viewer_id: str | None = None,
+    caption: bool = True,
+) -> str:
+    """Inline 3Dmol fragment (py3Dmol-style). Persists in exported HTML docs.
+
+    Loads 3Dmol.js from jsDelivr with the same RequireJS workaround py3Dmol
+    uses, so the canvas works on Sphinx / Read the Docs pages.
+    """
+    width_css = f"{width}px" if isinstance(width, int) else str(width)
+    height_css = f"{height}px" if isinstance(height, int) else str(height)
+    raw_id = viewer_id or hashlib.md5(f"{title}\n{pdb_text}".encode()).hexdigest()[:12]
+    vid = re.sub(r"[^A-Za-z0-9_]", "_", raw_id)
+    if vid[0].isdigit():
+        vid = f"v{vid}"
+    plddt = "NA" if mean_plddt is None else f"{mean_plddt:.1f}"
+    extra = f" {note}" if note else ""
+    head = ""
+    if caption:
+        head = (
+            f'<p class="txnova-fold-caption"><strong>{title}</strong> · '
+            f"source {source} · mean pLDDT {plddt}.{extra}<br>"
+            f"pLDDT: {_plddt_legend()}</p>\n"
+        )
+    pdb_js = json.dumps(pdb_text)
+    cdn_js = json.dumps(THREEDMOL_JS)
+    return f"""{head}<div id="3dmolviewer_{vid}" class="txnova-fold" style="position: relative; width: {width_css}; height: {height_css};">
+<p id="3dmolwarning_{vid}" style="background-color:#ffcccc;color:black">3Dmol.js failed to load for some reason. Please check your browser console for error messages.<br></p>
+</div>
+<script>
+var loadScriptAsync = function(uri){{
+  return new Promise((resolve, reject) => {{
+    var savedexports, savedmodule;
+    if (typeof exports !== 'undefined') savedexports = exports;
+    else exports = {{}};
+    if (typeof module !== 'undefined') savedmodule = module;
+    else module = {{}};
+    var tag = document.createElement('script');
+    tag.src = uri;
+    tag.async = true;
+    tag.onload = () => {{
+      exports = savedexports;
+      module = savedmodule;
+      resolve();
+    }};
+    tag.onerror = reject;
+    var firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+  }});
+}};
+if (typeof $3Dmolpromise === 'undefined') {{
+  $3Dmolpromise = loadScriptAsync({cdn_js});
+}}
+$3Dmolpromise.then(function() {{
+  var warn = document.getElementById("3dmolwarning_{vid}");
+  if (warn) warn.parentNode.removeChild(warn);
+  var viewer_{vid} = $3Dmol.createViewer(document.getElementById("3dmolviewer_{vid}"), {{backgroundColor: "white"}});
+  viewer_{vid}.addModel({pdb_js}, "pdb");
+  viewer_{vid}.setStyle({{}}, {{cartoon: {{colorfunc: function(atom) {{
+    let b = atom.b;
+    if (b <= 1.0) b = b * 100.0;
+    if (b >= 90) return "#0053D6";
+    if (b >= 70) return "#65CBF3";
+    if (b >= 50) return "#FFDB13";
+    return "#FF7D45";
+  }}}}}});
+  viewer_{vid}.zoomTo();
+  viewer_{vid}.render();
+}});
+</script>
+"""
+
+
+def display_structure(
+    *,
+    title: str,
+    pdb_text: str,
+    source: str,
+    mean_plddt: float | None,
+    note: str = "",
+    width: int | str = 720,
+    height: int | str = 520,
+    viewer_id: str | None = None,
+) -> object:
+    """Show a fold in a Jupyter notebook. The HTML is stored in the cell output."""
+    html = render_structure_embed(
+        title=title,
+        pdb_text=pdb_text,
+        source=source,
+        mean_plddt=mean_plddt,
+        note=note,
+        width=width,
+        height=height,
+        viewer_id=viewer_id,
+    )
+    try:
+        from IPython.display import HTML
+    except ImportError as e:
+        raise TxNovaError("display_structure needs IPython (Jupyter)") from e
+    return HTML(html)
+
+
 def render_structure_html(
     *,
     title: str,
@@ -164,19 +284,26 @@ def render_structure_html(
     mean_plddt: float | None,
     note: str = "",
 ) -> str:
-    pdb_js = json.dumps(pdb_text)
     plddt = "NA" if mean_plddt is None else f"{mean_plddt:.1f}"
-    legend = " · ".join(f'<span style="color:{c}">{lab}</span>' for _, _, c, lab in PLDDT_BANDS)
+    embed = render_structure_embed(
+        title=title,
+        pdb_text=pdb_text,
+        source=source,
+        mean_plddt=mean_plddt,
+        note=note,
+        width="100%",
+        height=640,
+        viewer_id="view",
+        caption=False,
+    )
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <title>{title}</title>
-<script src="https://3Dmol.org/build/3Dmol-min.js"></script>
 <style>
 body {{ margin: 0; font: 15px/1.45 system-ui, sans-serif; color: #1a1a1a; }}
 header {{ padding: 0.8rem 1.2rem; border-bottom: 1px solid #ddd; }}
-#view {{ width: 100%; height: 640px; }}
 .note {{ color: #555; font-size: 0.92rem; }}
 </style>
 </head>
@@ -184,25 +311,9 @@ header {{ padding: 0.8rem 1.2rem; border-bottom: 1px solid #ddd; }}
 <header>
   <strong>{title}</strong>
   <div class="note">source {source} · mean pLDDT {plddt}. {note}</div>
-  <div class="note">pLDDT: {legend}</div>
+  <div class="note">pLDDT: {_plddt_legend()}</div>
 </header>
-<div id="view"></div>
-<script>
-const pdb = {pdb_js};
-const el = document.getElementById("view");
-const viewer = $3Dmol.createViewer(el, {{backgroundColor: "white"}});
-viewer.addModel(pdb, "pdb");
-viewer.setStyle({{}}, {{cartoon: {{colorfunc: function(atom) {{
-  let b = atom.b;
-  if (b <= 1.0) b = b * 100.0;
-  if (b >= 90) return "#0053D6";
-  if (b >= 70) return "#65CBF3";
-  if (b >= 50) return "#FFDB13";
-  return "#FF7D45";
-}}}}}});
-viewer.zoomTo();
-viewer.render();
-</script>
+{embed}
 </body>
 </html>
 """
@@ -246,8 +357,9 @@ def fold_peptides(
     *,
     species: str,
     min_aa: int,
+    only: Iterable[str] | None = None,
 ) -> list[dict]:
-    """Write PDB + HTML for each eligible ORF. Network failures are recorded, not fatal."""
+    """Write PDB + HTML for listed ORFs. Network failures are recorded, not fatal."""
     peptides = parse_peptides_fa(peptides_fa)
     meta: dict[str, dict] = {}
     for table in tables:
@@ -260,13 +372,16 @@ def fold_peptides(
             continue
         for rec in df.to_dict(orient="records"):
             meta[str(rec["locus_id"])] = rec
+    wanted = {str(x) for x in only} if only is not None else set(meta)
 
     taxon = taxon_for_species(species)
     out_dir.mkdir(parents=True, exist_ok=True)
     rows: list[dict] = []
 
     for locus, seq in peptides.items():
-        info = meta.get(locus, {})
+        if locus not in wanted or locus not in meta:
+            continue
+        info = meta[locus]
         n_aa = len(seq)
         if n_aa < min_aa:
             continue

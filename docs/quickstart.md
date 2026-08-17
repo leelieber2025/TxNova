@@ -13,7 +13,7 @@ first if you haven't installed TxNova yet.
   match the BAM's `@SQ` lines exactly (same names, same lengths).
 
 If you only have FASTQs, align them first (`STAR` or `HISAT2`) — TxNova does
-not align. See [Data preparation](data_preparation.md) for the full recipe,
+not align. See [Data preparation](tutorials/t_prepare_bams.ipynb) for the full recipe,
 including how to figure out `strandedness`.
 
 ## 2. Write starter files
@@ -112,29 +112,32 @@ if you want to skip the latter.
 
 ```text
 output_dir/
-├── candidates/candidates.tsv    # the final candidate table
-├── report/report.md             # same content as a readable Markdown doc
-├── report/report.html           # ...and as a self-contained HTML page
-└── quantify/                    # full-universe counts / TPM / DE
+├── candidates/candidates.tsv           # treat-specific finals
+├── candidates/candidates.unnamed.tsv   # structure-pass, also in control (TPM)
+├── candidates/candidates.shared.tsv    # structure-pass, splice in both groups
+├── report/report.html                  # start here
+└── quantify/                           # full-universe counts / TPM / DE
 ```
 
-Open `report/report.html` first — it has the run parameters, a funnel table
-(how many transcripts survived each stage), and the final candidate table
-with everything you need to sanity-check a row: residual locus, junction/bridge
-support, TPM in control vs. treat, and DE statistics. Full column reference:
-[Output reference](outputs.md).
+Open `report/report.html` first — run parameters, funnel, and all three
+tables. The three files share structural gates and answer different
+questions (induction vs unannotated structure in both groups). Column
+reference: [Output reference](outputs.md#the-three-tables).
 
 ### If `candidates.tsv` is empty
 
-Real experiments often have zero or a handful of intergenic, treat-specific
-loci. To see which stage cut the count:
+An empty **final** table is common. Check the other two tables before
+loosening gates: unnamed is structure-pass with control TPM still on;
+shared is structure-pass with a splice in both groups. Neither is a
+failed final row.
 
-1. Check `report/report.md`'s **Funnel** section to see which stage cut the
-   count to zero (structure gates, control/treat TPM gates, or DE).
-2. Look at `candidates/candidates.gates.tsv` — this is the pre-DE view, so if
-   it has rows but `candidates.tsv` doesn't, DE is the filter to look at.
-3. See the [FAQ](faq.md#candidatestsv-is-empty) for the specific gate
-   thresholds and how to loosen them.
+If those are empty too:
+
+1. Check `report/report.md`'s **Funnel** for which stage cut the count
+   (structure, control/treat TPM, or DE).
+2. `candidates/candidates.gates.tsv` is the pre-DE treat-specific view.
+   Rows there but not in `candidates.tsv` means DE filtered them.
+3. See the [FAQ](faq.md#candidatestsv-is-empty).
 
 ## 8. Rebuild just the report
 

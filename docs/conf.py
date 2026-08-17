@@ -10,7 +10,7 @@ author = "Zhao Li (李钊)"
 copyright = f"{datetime.now():%Y}, {author}"
 repository_url = "https://github.com/leelieber2025/TxNova"
 default_branch = "main"
-release = "0.1.0"
+release = "0.1.3"
 version = release
 
 html_context = {
@@ -22,7 +22,7 @@ html_context = {
 }
 
 extensions = [
-    "myst_parser",
+    "myst_nb",
     "sphinx.ext.mathjax",
     "sphinx_copybutton",
     "sphinx_design",
@@ -37,8 +37,11 @@ myst_enable_extensions = [
 myst_heading_anchors = 3
 source_suffix = {
     ".rst": "restructuredtext",
-    ".md": "markdown",
+    ".md": "myst-nb",
+    ".ipynb": "myst-nb",
 }
+nb_execution_mode = "off"
+nb_merge_streams = True
 
 exclude_patterns = [
     "_build",
@@ -47,6 +50,7 @@ exclude_patterns = [
     "DEVELOPMENT.md",
     "DATASETS.md",
     "LOCUS_HYPOTHESIS.md",
+    "draft",
     "requirements.txt",
     ".ipynb_checkpoints",
 ]
@@ -75,6 +79,7 @@ pygments_style = "tango"
 pygments_dark_style = "monokai"
 
 html_static_path = ["_static"]
+html_extra_path = ["_extra"]
 html_css_files = ["css/custom.css"]
 html_show_sphinx = False
 

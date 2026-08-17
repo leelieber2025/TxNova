@@ -848,7 +848,7 @@ def test_monoexon_still_fails_distance(tmp_path: Path) -> None:
     struct = tmp_path / "s.tsv"
     struct.write_text(
         header + "L1\tt1\tT1\tchr1\t1000\t1400\t+\t1\t400\t\t\t\t0\ttrue\t"
-        "G1\tNear\t800\t+\tG1\tNear\t800\t+\t10\t0.0\ttrue\t0.0\t0\t\t0\n",
+        "G1\tNear\t400\t+\tG1\tNear\t400\t+\t10\t0.0\ttrue\t0.0\t0\t\t0\n",
         encoding="utf-8",
     )
     tpm = tmp_path / "tpm.tsv"

@@ -35,8 +35,8 @@ Two steps make outbound HTTPS calls. Both default **on**:
 
 | Config flag | Calls | What it adds |
 |---|---|---|
-| `coding.fold: true` | AlphaFold DB, ESMFold, UniProt | 3D models for predicted ORFs |
-| `coding.orphan: true` | UCSC, EBI HMMER/Pfam | Conservation and Pfam hits for unnamed loci |
+| `coding.fold: true` | AlphaFold DB, ESMFold, UniProt | 3D models for the top 30 gene-like loci |
+| `coding.orphan: true` | UCSC, EBI HMMER/Pfam | Conservation and Pfam on those same top 30 |
 
 Network failures are warnings and do **not** fail the run. On an offline
 node, set both to `false` (see [Configuration](configuration.md#coding)).

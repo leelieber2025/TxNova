@@ -23,12 +23,13 @@ output_dir/
 ├── structure/
 │   └── structure.features.tsv   # splice canonicity, coverage, bridging, distances
 ├── candidates/
-│   ├── leak.tsv                 # treat-recurrent, control-silent splices missing from the annotation
+│   ├── leak.tsv                 # treat-recurrent splices missing from the annotation (silent + shared)
 │   ├── residual.tsv             # locus hypotheses built from leaked splices
 │   ├── residual.gtf
 │   ├── residual.stats.json      # n_loci / n_degenerate
 │   ├── candidates.gates.tsv     # after structural gates, before DE
-│   ├── candidates.unnamed.tsv   # structure-pass loci that are also seen in control
+│   ├── candidates.unnamed.tsv   # structure-pass loci that are also seen in control (TPM)
+│   ├── candidates.shared.tsv    # structure-pass loci whose splices are also in control
 │   ├── candidates.de.tsv        # after DE (or a passthrough copy if de.enabled: false)
 │   ├── candidates.reps.tsv      # representative transcript per candidate locus
 │   ├── orfs.tsv                 # ORF scan output
@@ -50,20 +51,34 @@ output_dir/
 
 The report is a self-contained walkthrough of the run: parameters used, the
 sample sheet, preflight results, a **funnel table** (how many transcripts/loci
-survived each stage), and then the candidate, gene-rank, orphan, leak, and
-residual tables inline. `report/report.md` has the same content as plain
+survived each stage), and the three structure-pass tables plus gene-rank,
+orphan, leak, and residual. `report/report.md` has the same content as plain
 Markdown. Regenerate either without rerunning the pipeline:
 
 ```bash
 txnova report -c config.yaml
 ```
 
+## The three tables
+
+A run writes **three** structure-pass views. They share length, distance,
+splice, valley, and bridge gates. They are not three snapshots of the same
+filter.
+
+| File | Who is in it | What it means |
+|---|---|---|
+| `candidates/candidates.tsv` | Structure pass, control max TPM below the gate, treat detection, and DE if enabled | Experimental-group-specific. The induction table. |
+| `candidates/candidates.unnamed.tsv` | Structure pass, control max TPM at or above the gate | Interval also transcribed in control. Unannotated structure, not treat-specific. |
+| `candidates/candidates.shared.tsv` | Structure pass, and a harvest junction is `cohort=shared` | The splice is used in both groups. Not interval TPM, not a DE call. |
+
+A locus can appear in unnamed and shared at once. It cannot appear in both
+the final table and unnamed (those two are split by the control TPM gate).
+`candidates.gates.tsv` / `candidates.de.tsv` are earlier snapshots of the
+**final** path only.
+
 ## `candidates.tsv`
 
-The final table — one row per candidate locus. Every downstream file
-(`candidates.gates.tsv`, `.unnamed.tsv`, `.de.tsv`) is an earlier snapshot of
-the same pipeline of joins, useful for seeing exactly which stage removed a
-locus you were expecting.
+The treat-specific table — one row per experimental-group-specific locus.
 
 | Column | Meaning |
 |---|---|
@@ -95,14 +110,14 @@ per-replicate support for any row by hand.
 
 ## `candidates/gene_rank.tsv`
 
-All structure-pass loci (not just the final candidates), ranked by how
-gene-like they look — combining the ORF/hexamer/Fickett features above with
-GENCODE-style structural checks and penalties learned from manual review
-(unplaced contigs, zero-support "introns," retroviral gag/pol/MLV motifs,
+Structure-pass loci from the **final table ∪ unnamed** (not shared-only
+rows that failed those two), ranked by how gene-like they look — ORF /
+hexamer / Fickett plus GENCODE-style checks and penalties from manual
+review (unplaced contigs, zero-support "introns," retroviral gag/pol/MLV,
 intronless copies of known proteins). Stage 1 scores every row offline.
 Stage 2 fetches phyloP / Pfam on the top **40**, then re-sorts; the report
-shows the top **30**. Use this to decide which loci to look at by hand,
-especially when `candidates.tsv` is short.
+shows the top **30**. Use this when `candidates.tsv` is short; unnamed
+loci are in the rank on purpose.
 
 ## `candidates/orphan.tsv`
 
@@ -113,24 +128,28 @@ could supply a gene name (`named_overlap = none`).
 
 ## `candidates/leak.tsv` and `candidates/residual.tsv`
 
-**`leak.tsv`** lists treat-recurrent, control-silent spliced junctions from
-the BAMs (CIGAR `N`) that are absent from the annotation
-(`status = unassembled`). Junctions inside known gene bodies are omitted.
+**`leak.tsv`** lists treat-recurrent spliced junctions from the BAMs
+(CIGAR `N`) that are absent from the annotation (`status = unassembled`).
+`cohort=silent` has no control support; `cohort=shared` is also in control.
+Junctions inside known gene bodies are omitted.
 
 **`residual.tsv`** clusters those junctions into locus hypotheses (shared
 splice site, or a 30–20 kb constitutive exon between adjacent introns),
 clips terminals off gene bodies, and writes them into `assembly/universe.gtf`.
 They then take the same quantify → structure → gates → DE path as annotated
-genes.
+genes. `cohort` on each locus is `shared` if any member junction was in control.
+
+See [The three tables](#the-three-tables) for how `candidates.shared.tsv`
+and `candidates.unnamed.tsv` differ from the final table.
 
 ## `fold/`
 
-3D structure models for ORFs found during the coding stage — AlphaFold DB
-lookups for named loci, ESMFold predictions for unnamed peptides. Open
-`fold/index.html` for an interactive viewer (colored by pLDDT confidence);
+3D structure models for the **top 30** gene-like loci (`gene_rank.tsv`) —
+AlphaFold DB lookups for named loci, ESMFold predictions for unnamed peptides.
+Open `fold/index.html` for an interactive viewer (colored by pLDDT confidence);
 `fold/function.tsv` adds UniProt curated function (named loci) or Foldseek
 fold-similarity hits (unnamed loci). Only produced when `coding.enabled` and
-`coding.fold` are both `true`.
+`coding.fold` are both `true`. Other loci are not folded.
 
 ## `run.json`
 

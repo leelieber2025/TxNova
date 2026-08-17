@@ -46,6 +46,8 @@ RESIDUAL_COLUMNS = [
     "nearest_gene_name",
     "nearest_distance_bp",
     "control_max",
+    "control_n_detected",
+    "cohort",
     "treat_sum",
     "treat_n_detected",
     "n_shared_site",
@@ -65,6 +67,23 @@ MAX_TERMINAL_GAP_NT = 20
 # Same-strand, comprehensive GTF: drop only if stuck to a gene (extension).
 # Not a 5 kb gate. Opposite strand is ignored here.
 CLOSE_SAME_STRAND_NT = 200
+# Real U2-like introns. 36–37 nt "N" spans in the public runs were mapping noise.
+MIN_INTRON_NT = 50
+# Either-strand. 221720 RSDL.83 sat 1 bp from a U1-class snRNA.
+SMALL_RNA_TYPES = frozenset(
+    {
+        "snRNA",
+        "snoRNA",
+        "rRNA",
+        "tRNA",
+        "scRNA",
+        "sRNA",
+        "Mt_rRNA",
+        "Mt_tRNA",
+        "vault_RNA",
+        "ribozyme",
+    }
+)
 
 
 def _true(v: Any) -> bool:
@@ -132,6 +151,41 @@ def nearest_same_strand(
     return best_name, best_d
 
 
+def _intron_nt(start: object, end: object) -> int:
+    return int(end) - int(start) + 1
+
+
+def close_to_small_rna(
+    chrom: str,
+    start: int,
+    end: int,
+    genes: GeneBodies,
+    max_d: int = CLOSE_SAME_STRAND_NT,
+) -> bool:
+    """Either-strand distance to sn/sno/r/tRNA. Opposite strand counts."""
+    for gs, ge, _strand, _name, typ, _gid in genes.get(chrom_key(chrom), []):
+        if typ not in SMALL_RNA_TYPES:
+            continue
+        if start <= ge and gs <= end:
+            return True
+        if end < gs:
+            d = gs - end - 1
+        else:
+            d = start - ge - 1
+        if d < max_d:
+            return True
+    return False
+
+
+def _has_stub_terminal(exon_structure: str) -> bool:
+    exons = parse_exons(exon_structure)
+    if len(exons) < 2:
+        return True
+    left = exons[0][1] - exons[0][0] + 1
+    right = exons[-1][1] - exons[-1][0] + 1
+    return left <= MIN_TERMINAL_NT or right <= MIN_TERMINAL_NT
+
+
 def select_junctions(leak: pd.DataFrame, genes: GeneBodies | None = None) -> pd.DataFrame:
     """Unassembled, not overlapping a gene body on either strand.
 
@@ -146,6 +200,16 @@ def select_junctions(leak: pd.DataFrame, genes: GeneBodies | None = None) -> pd.
     if "overlaps_gene" in leak.columns:
         keep = keep & ~leak["overlaps_gene"].map(_true)
     src = leak.loc[keep].copy()
+    if src.empty:
+        return src
+    src = src.loc[
+        (
+            pd.to_numeric(src["end"], errors="coerce")
+            - pd.to_numeric(src["start"], errors="coerce")
+            + 1
+        )
+        >= MIN_INTRON_NT
+    ].copy()
     if src.empty or not genes:
         return src
     keep_rows = []
@@ -348,7 +412,7 @@ def apply_terminal_extents(
         struct, n_exons, loc_s, loc_e, length = _rebuild_exons(
             str(rec["intron_structure"]), left, right
         )
-        if n_exons < 2:
+        if n_exons < 2 or _has_stub_terminal(struct):
             n_degenerate += 1
             continue
         rec["start"] = loc_s
@@ -360,7 +424,23 @@ def apply_terminal_extents(
         rows.append(rec)
     if not rows:
         return pd.DataFrame(columns=RESIDUAL_COLUMNS), n_degenerate
-    return pd.DataFrame(rows)[RESIDUAL_COLUMNS], n_degenerate
+    return _with_residual_columns(pd.DataFrame(rows)), n_degenerate
+
+
+def _with_residual_columns(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    if "control_max" in out.columns:
+        ctrl = pd.to_numeric(out["control_max"], errors="coerce").fillna(0)
+    else:
+        ctrl = pd.Series([0] * len(out), index=out.index)
+    if "control_n_detected" not in out.columns:
+        out["control_n_detected"] = [1 if float(v) > 0 else 0 for v in ctrl]
+    if "cohort" not in out.columns:
+        out["cohort"] = ["shared" if float(v) > 0 else "silent" for v in ctrl]
+    for col in RESIDUAL_COLUMNS:
+        if col not in out.columns:
+            out[col] = ""
+    return out[RESIDUAL_COLUMNS]
 
 
 def _cluster_record(members: list[dict], residual_id: str) -> dict:
@@ -370,6 +450,10 @@ def _cluster_record(members: list[dict], residual_id: str) -> dict:
     treat_n = max(int(m.get("treat_n_detected") or 0) for m in members)
     treat_sum = int(sum(int(m.get("treat_sum") or 0) for m in members))
     control_max = max(int(m.get("control_max") or 0) for m in members)
+    control_n = max(int(m.get("control_n_detected") or 0) for m in members)
+    if control_n == 0 and control_max > 0:
+        control_n = 1
+    cohort = "shared" if control_max > 0 else "silent"
     return {
         "residual_id": residual_id,
         "chrom": members[0]["chrom"],
@@ -386,6 +470,8 @@ def _cluster_record(members: list[dict], residual_id: str) -> dict:
         "nearest_gene_name": nearest_name,
         "nearest_distance_bp": nearest_d,
         "control_max": control_max,
+        "control_n_detected": control_n,
+        "cohort": cohort,
         "treat_sum": treat_sum,
         "treat_n_detected": treat_n,
         "n_shared_site": _n_shared_site(members),
@@ -448,6 +534,8 @@ def cluster_leak(
                 continue
             _name, close_d = nearest_same_strand(chrom, span_s, span_e, strand, genes)
             if close_d is not None and close_d < CLOSE_SAME_STRAND_NT:
+                continue
+            if close_to_small_rna(chrom, span_s, span_e, genes):
                 continue
             clipped = _clip_record_terminals(rec, genes)
             if clipped is None:

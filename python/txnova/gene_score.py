@@ -30,6 +30,18 @@ GENE_RANK_FILENAME = "gene_rank.tsv"
 REPORT_N = 30
 FUNCTION_POOL = 40
 
+
+def top_rank_ids(path: Path, n: int = REPORT_N) -> list[str]:
+    if not path.is_file() or path.stat().st_size == 0:
+        return []
+    df = pd.read_csv(path, sep="\t")
+    if df.empty or "locus_id" not in df.columns:
+        return []
+    if "gene_rank" in df.columns:
+        df = df.sort_values("gene_rank", ascending=True)
+    return [str(x) for x in df["locus_id"].head(n).tolist()]
+
+
 _UNPLACED = re.compile(
     r"^(GL|JH|KB|KQ|MU|chrUn|Un_|NW_|NT_)",
     re.I,

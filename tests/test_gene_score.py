@@ -9,6 +9,7 @@ from txnova.gene_score import (
     junction_min,
     rank_loci,
     stage2_adjust,
+    top_rank_ids,
     write_gene_rank,
 )
 
@@ -21,6 +22,15 @@ def test_chrom_and_junction_helpers() -> None:
     assert junction_min("25,22,0,16") == 0
     assert junction_min("783,825") == 783
     assert junction_min("") is None
+
+
+def test_top_rank_ids(tmp_path: Path) -> None:
+    p = tmp_path / "gene_rank.tsv"
+    p.write_text(
+        "gene_rank\tlocus_id\n2\tB\n1\tA\n3\tC\n",
+        encoding="utf-8",
+    )
+    assert top_rank_ids(p, 2) == ["A", "B"]
 
 
 def test_unplaced_and_nosplice_rank_below_chromosomal() -> None:

@@ -1,6 +1,6 @@
 """TxNova: experimental-group-specific novel intergenic transcripts."""
 
-__version__ = "0.1.0"
+__version__ = "0.1.3"
 
 from txnova.errors import TxNovaError
 

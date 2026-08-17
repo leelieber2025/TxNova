@@ -28,6 +28,7 @@ CANDIDATE_COLS = [
     "junction_support",
     "bridge_read_count",
     "control_max_tpm",
+    "residual_cohort",
     "treat_median_tpm",
     "baseMean",
     "pvalue",
@@ -92,9 +93,17 @@ def _funnel(out: Path) -> list[dict[str, Any]]:
     gates = out / "candidates" / "candidates.gates.tsv"
     unnamed = out / "candidates" / "candidates.unnamed.tsv"
     de_view = out / "candidates" / "candidates.de.tsv"
+    shared = out / "candidates" / "candidates.shared.tsv"
     if unnamed.is_file():
         rows.append(
-            {"label": "unnamed (structure-pass, also in control)", "n": _tsv_nrows(unnamed)}
+            {"label": "unnamed (structure-pass, also in control TPM)", "n": _tsv_nrows(unnamed)}
+        )
+    if shared.is_file():
+        rows.append(
+            {
+                "label": "shared splice (structure-pass, both groups)",
+                "n": _tsv_nrows(shared),
+            }
         )
     if gates.is_file():
         rows.append({"label": "after gates", "n": _tsv_nrows(gates)})
@@ -109,11 +118,14 @@ def _funnel(out: Path) -> list[dict[str, Any]]:
     if leak.is_file():
         ldf = pd.read_csv(leak, sep="\t")
         if ldf.empty or "status" not in ldf.columns:
-            rows.append({"label": "leak (treat-specific splice, not a candidate)", "n": 0})
+            rows.append({"label": "leak (treat-recurrent splice, not a candidate)", "n": 0})
         else:
             n_un = int((ldf["status"] == "unassembled").sum())
             n_au = int((ldf["status"] == "assembled_u").sum())
+            n_sh = int((ldf["cohort"] == "shared").sum()) if "cohort" in ldf.columns else 0
             rows.append({"label": "leak unassembled (BAM splice, not in annotation)", "n": n_un})
+            if n_sh:
+                rows.append({"label": "leak shared (splice also in control)", "n": n_sh})
             if n_au:
                 rows.append(
                     {
@@ -162,8 +174,10 @@ LEAK_COLS = [
     "control_max",
     "treat_sum",
     "treat_n_detected",
+    "cohort",
     "in_gates",
     "in_unnamed",
+    "in_shared",
 ]
 
 
@@ -192,6 +206,7 @@ RESIDUAL_COLS = [
     "nearest_distance_bp",
     "treat_sum",
     "treat_n_detected",
+    "cohort",
     "n_shared_site",
 ]
 
@@ -314,6 +329,8 @@ def build_context(
     if cand_path.is_file():
         n_candidates = n_from_file
     u_cols, u_recs, n_unnamed = _candidate_records(unnamed_path)
+    shared_path = cfg.output_dir / "candidates" / "candidates.shared.tsv"
+    s_cols, s_recs, n_shared = _candidate_records(shared_path)
     orphan_path = cfg.output_dir / "candidates" / "orphan.tsv"
     o_cols, o_recs = _orphan_records(orphan_path)
     leak_path = cfg.output_dir / "candidates" / "leak.tsv"
@@ -335,6 +352,9 @@ def build_context(
         "unnamed_cols": u_cols,
         "unnamed": u_recs,
         "n_unnamed": n_unnamed,
+        "shared_cols": s_cols,
+        "shared": s_recs,
+        "n_shared": n_shared,
         "has_structures": (cfg.output_dir / "fold" / "index.html").is_file(),
         "orphan_cols": o_cols,
         "orphans": o_recs,
@@ -418,8 +438,8 @@ def render_report(
             lines.append(f"| {row['label']} | {row['n']} |")
         lines += [
             "",
-            "Annotation plus residual splice loci form the quantify universe. Residual loci cluster treat-specific "
-            "BAM splices missing from the annotation. Class `u` is a negative "
+            "Annotation plus residual splice loci form the quantify universe. Residual loci cluster treat-recurrent "
+            "BAM splices missing from the annotation (control-silent and both-group). Class `u` is a negative "
             "definition. Counts and junctions are recomputed from the BAM.",
             "",
         ]
@@ -427,7 +447,7 @@ def render_report(
         lines += [
             "## Structures",
             "",
-            "3D models for ORFs: named loci from AlphaFold DB, unnamed peptides from ESMFold. "
+            "3D models for the top 30 gene-like loci: named loci from AlphaFold DB, unnamed peptides from ESMFold. "
             "Colour is pLDDT (blue = confident). See `fold/index.html`.",
             "",
         ]
@@ -477,10 +497,10 @@ def render_report(
         shown = len(ctx["leaks"])
         extra = f" Showing {shown} with highest treat support." if shown < ctx["n_leaks"] else ""
         lines.append(
-            f"**{ctx['n_leaks']}** treat-recurrent, control-silent splice junctions "
-            "missing from the annotation (`unassembled`). Known-gene introns are "
-            "omitted. `assembled_u` is unused because `merged.gtf` is the "
-            "annotation. This is a recall check, not a gene list."
+            f"**{ctx['n_leaks']}** treat-recurrent splice junctions "
+            "missing from the annotation (`unassembled`). `cohort=silent` is "
+            "absent from control; `cohort=shared` is also in control. Known-gene "
+            "introns are omitted. This is a recall check, not a gene list."
             f"{extra} See `candidates/leak.tsv`."
         )
         lines.append("")
@@ -491,7 +511,7 @@ def render_report(
         lines.append("")
     else:
         lines += [
-            "No treat-specific residual splices. See `candidates/leak.tsv`.",
+            "No treat-recurrent residual splices. See `candidates/leak.tsv`.",
             "",
         ]
     lines += [
@@ -505,11 +525,11 @@ def render_report(
         lines.append(
             f"**{ctx['n_residuals']}** intergenic unassembled leak junctions "
             "clustered into locus hypotheses (shared splice site or a 30–20 kb "
-            "constitutive exon between adjacent introns). Terminal exons "
-            "follow treat coverage from the splice site "
-            "(2 kb cap). Residual loci are in `universe.gtf` and go through "
-            "quantify, gates, and DE. This table is the locus-hypothesis "
-            "list, not the final candidate table."
+            "constitutive exon between adjacent introns). Includes control-silent "
+            "and both-group splices (`cohort`). Terminal exons follow treat "
+            "coverage from the splice site (2 kb cap). Residual loci are in "
+            "`universe.gtf` and go through quantify, gates, and DE. This table "
+            "is the locus-hypothesis list, not the final candidate table."
             f"{extra} See `candidates/residual.tsv`."
         )
         lines.append("")
@@ -555,10 +575,26 @@ def render_report(
         ]
     if ctx.get("n_unnamed"):
         lines += [
-            f"{ctx['n_unnamed']} structure-pass loci are also in control "
+            f"{ctx['n_unnamed']} structure-pass loci are also in control by TPM "
             "(`candidates/candidates.unnamed.tsv`). They are included in the rank.",
             "",
         ]
+    if ctx.get("n_shared"):
+        lines += [
+            "## Shared splice (both groups)",
+            "",
+            f"**{ctx['n_shared']}** structure-pass unannotated loci whose harvest "
+            "junctions are also in control. This is not the treat-specific final "
+            "table. See `candidates/candidates.shared.tsv`.",
+            "",
+        ]
+        if ctx.get("shared"):
+            cols = ctx["shared_cols"]
+            lines.append("| " + " | ".join(cols) + " |")
+            lines.append("| " + " | ".join("---" for _ in cols) + " |")
+            for rec in ctx["shared"]:
+                lines.append("| " + " | ".join(rec[c].replace("|", "\\|") for c in cols) + " |")
+            lines.append("")
     lines += [
         "## Orphan (no gene name)",
         "",
