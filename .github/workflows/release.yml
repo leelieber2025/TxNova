@@ -1,0 +1,118 @@
+# Build wheels / sdist. Publish to PyPI on a v* tag.
+#
+# One-time: PyPI → Publishing → trusted publisher
+#   owner/repo = this GitHub repo
+#   workflow   = release.yml
+#   environment = pypi
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            target: x86_64
+          - runner: ubuntu-22.04-arm
+            target: aarch64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          # 2_28 (AlmaLinux 8) has clang-devel; manylinux2014/CentOS 7 often does not.
+          manylinux: "2_28"
+          args: --release --out dist
+          sccache: "true"
+          before-script-linux: |
+            # rust-htslib enables hts-sys/bindgen. bindgen needs libclang.so at cargo time.
+            if command -v dnf >/dev/null; then
+              dnf install -y zlib-devel bzip2-devel xz-devel clang clang-devel llvm-devel
+            elif command -v yum >/dev/null; then
+              yum install -y zlib-devel bzip2-devel xz-devel clang clang-devel llvm-devel \
+                || yum install -y zlib-devel bzip2-devel xz-devel llvm-toolset-7-clang \
+                  llvm-toolset-7-clang-devel
+              if [ -f /opt/rh/llvm-toolset-7/enable ]; then
+                # shellcheck disable=SC1091
+                source /opt/rh/llvm-toolset-7/enable
+              fi
+            elif command -v apk >/dev/null; then
+              apk add --no-cache zlib-dev bzip2-dev xz-dev clang clang-dev llvm-dev
+            fi
+            CLANG_SO=$(find /usr /opt /lib64 -name 'libclang.so*' 2>/dev/null | head -1 || true)
+            if [ -z "$CLANG_SO" ]; then
+              echo "libclang.so not found after package install" >&2
+              exit 1
+            fi
+            export LIBCLANG_PATH="$(dirname "$CLANG_SO")"
+            if command -v llvm-config >/dev/null; then
+              export LLVM_CONFIG_PATH="$(command -v llvm-config)"
+            fi
+            echo "LIBCLANG_PATH=$LIBCLANG_PATH"
+            ls -l "$LIBCLANG_PATH"/libclang.so*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-linux-${{ matrix.target }}
+          path: dist
+
+  macos:
+    # Both targets cross-compiled from one Apple Silicon runner. macos-13
+    # (Intel) hosted runners have very limited GitHub capacity and can queue
+    # indefinitely; Xcode on macos-14 can already target x86_64 as well as
+    # aarch64, so there's no need for a separate Intel runner.
+    runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [x86_64, aarch64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist
+          sccache: "true"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-macos-${{ matrix.target }}
+          path: dist
+
+  sdist:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist
+
+  publish:
+    needs: [linux, macos, sdist]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-22.04
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true

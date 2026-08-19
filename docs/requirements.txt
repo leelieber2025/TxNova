@@ -1,0 +1,8 @@
+# Read the Docs + local sphinx-build. Do not pip-install txnova here
+# (that would compile the Rust extension on the docs builder).
+sphinx>=7.0
+sphinx-book-theme>=1.1
+myst-parser>=2.0
+myst-nb>=1.0
+sphinx-copybutton>=0.5
+sphinx-design>=0.5

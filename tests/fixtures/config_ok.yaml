@@ -1,0 +1,10 @@
+species: mouse
+output_dir: ./txnova_out
+threads: 0
+genome:
+  fasta: genome.fa
+  annotation: genes.gtf
+  annotation_source: GENCODE
+  annotation_version: M39
+  assembly: GRCm39
+samples: samples_ok.tsv

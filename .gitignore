@@ -1,0 +1,29 @@
+/target/
+/rust/txnova-core/target/
+**/*.so
+**/*.pyd
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+/site/
+/docs/_build/
+txnova_out/
+*.whl
+.python-version
+
+# local research data (real BAM/FASTQ runs, GBs-TBs) — never committed
+/data/
+
+# internal review artifacts (source snapshots + review reports)
+txnova-src-review-*.zip
+txnova-code-review-round*.md
+
+# editor / local-tool state
+.ipynb_checkpoints/
+.claude/

@@ -1,0 +1,5 @@
+sample_id	bam	group	strandedness	replicate
+ctrl_1	/data/ctrl_1.bam	control	rf	1
+ctrl_2	/data/ctrl_2.bam	control	rf	2
+treat_1	/data/treat_1.bam	treat	rf	1
+treat_2	/data/treat_2.bam	treat	rf	2

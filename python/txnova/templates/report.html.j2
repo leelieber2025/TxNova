@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TxNova report</title>
+<style>
+:root {
+  --fg: #1a1a1a;
+  --muted: #555;
+  --line: #d8d8d8;
+  --bg: #fafafa;
+  --card: #fff;
+  --warn: #7a4b00;
+  --err: #8b1e1e;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0 auto;
+  max-width: 1100px;
+  padding: 2rem 1.25rem 4rem;
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+}
+h1 { font-size: 1.6rem; margin: 0 0 0.4rem; }
+h2 { font-size: 1.15rem; margin: 2rem 0 0.6rem; border-bottom: 1px solid var(--line); padding-bottom: 0.25rem; }
+.lede { color: var(--muted); margin: 0 0 1.25rem; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.85rem 1rem;
+  margin: 0.6rem 0;
+}
+dl { display: grid; grid-template-columns: 12rem 1fr; gap: 0.25rem 1rem; margin: 0; }
+dt { color: var(--muted); }
+dd { margin: 0; }
+table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+th, td { border-bottom: 1px solid var(--line); text-align: left; padding: 0.35rem 0.45rem; vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+.wrap { overflow-x: auto; }
+.note { color: var(--muted); font-size: 0.92rem; }
+.warn { color: var(--warn); }
+.err { color: var(--err); }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86em; }
+</style>
+</head>
+<body>
+<h1>TxNova report</h1>
+<p class="lede">{{ n_candidates }} locus/loci in the final table.</p>
+
+<div class="card">
+<dl>
+  <dt>species</dt><dd><code>{{ cfg.species }}</code></dd>
+  <dt>assembly</dt><dd><code>{{ cfg.genome.assembly }}</code></dd>
+  <dt>annotation</dt><dd><code>{{ cfg.genome.annotation_source }} {{ cfg.genome.annotation_version }}</code></dd>
+  <dt>aligner</dt><dd><code>{{ preflight.aligner_family }}</code></dd>
+  <dt>layout / strand</dt><dd><code>{{ preflight.library_layout }}</code> / <code>{{ preflight.strandedness }}</code></dd>
+  <dt>control / treat</dt><dd>{{ preflight.n_control }} / {{ preflight.n_treat }}</dd>
+  <dt>threads</dt><dd>
+    {% set t = preflight.threads or {} %}
+    {{ t.bam_workers }} BAM workers
+    (cpus {{ t.cpus }}, usable {{ t.usable }};
+    requested threads={{ t.requested }}; auto bam={{ t.auto }})
+  </dd>
+  <dt>DE</dt><dd>{% if cfg.de.enabled %}DESeq2-style (pydeseq2); keeps <code>wald</code> (padj+LFC) and <code>low_count</code> (independent-filtering NA); evaluated non-hits are dropped{% else %}not run{% endif %}</dd>
+  <dt>coding</dt><dd>{% if cfg.coding.enabled %}hexamer LLR + Fickett{% else %}not run{% endif %}</dd>
+  <dt>orphan</dt><dd>{% if cfg.coding.enabled and cfg.coding.orphan %}named_overlap=none: UCSC phyloP/phastCons + HMMER hmmscan/Pfam{% else %}not run{% endif %}</dd>
+</dl>
+</div>
+
+<h2>Samples</h2>
+<div class="wrap">
+<table>
+  <thead><tr><th>sample_id</th><th>group</th><th>replicate</th><th>strandedness</th><th>bam</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr><td>{{ r.sample_id }}</td><td>{{ r.group }}</td><td>{{ r.replicate }}</td><td>{{ r.strandedness }}</td><td><code>{{ r.bam }}</code></td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2>Preflight</h2>
+<p>ok: <code>{{ preflight.ok }}</code>. SQ sha256: <code>{{ preflight.sq_sha256 }}</code>. GTF seqnames: {{ preflight.gtf_seqnames }}.</p>
+{% if warnings %}
+<p class="warn">Warnings</p>
+<ul>{% for w in warnings %}<li>{{ w }}</li>{% endfor %}</ul>
+{% endif %}
+{% if errors %}
+<p class="err">Errors</p>
+<ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+{% endif %}
+
+{% if funnel %}
+<h2>Funnel</h2>
+<div class="wrap">
+<table>
+  <thead><tr><th>step</th><th>n</th></tr></thead>
+  <tbody>
+  {% for row in funnel %}
+  <tr><td>{{ row.label }}</td><td>{{ row.n }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="note">Annotation plus residual splice loci form the quantify universe. Residual loci cluster treat-recurrent BAM splices missing from the annotation (control-silent and both-group). Class <code>u</code> is a negative definition. Counts and junctions are recomputed from the BAM.</p>
+{% endif %}
+
+{% if has_structures %}
+<h2>Structures</h2>
+<p class="note">3D models for the top 30 gene-like loci: named loci from AlphaFold DB, unnamed peptides from ESMFold. Colour is pLDDT (blue = confident). Open <code>fold/index.html</code>.</p>
+{% endif %}
+
+<h2>Leak (BAM splice not in the candidate path)</h2>
+{% if leaks %}
+<p class="note">{{ n_leaks }} treat-recurrent splice junctions missing from the annotation (<code>unassembled</code>). <code>cohort=silent</code> is absent from control; <code>cohort=shared</code> is also in control. Known-gene introns are omitted.{% if leaks and n_leaks > leaks|length %} Showing {{ leaks|length }} with highest treat support.{% endif %} See <code>candidates/leak.tsv</code>.</p>
+<div class="wrap">
+<table>
+  <thead>
+    <tr>
+    {% for col in leak_cols %}<th>{{ col }}</th>{% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+  {% for rec in leaks %}
+    <tr>
+    {% for col in leak_cols %}<td>{{ rec[col] }}</td>{% endfor %}
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p>No treat-recurrent residual splices. See <code>candidates/leak.tsv</code>.</p>
+{% endif %}
+
+<h2>Residual splice loci</h2>
+{% if residuals %}
+<p class="note">{{ n_residuals }} intergenic unassembled leak junctions clustered into locus hypotheses (shared splice site or a 30–20 kb constitutive exon between adjacent introns). Includes control-silent and both-group splices (<code>cohort</code>). Terminal exons follow treat coverage from the splice site (2 kb cap). Residual loci are in <code>universe.gtf</code> and go through quantify, gates, and DE. This table is the locus-hypothesis list, not the final candidate table.{% if residuals and n_residuals > residuals|length %} Showing {{ residuals|length }} with most junctions.{% endif %} See <code>candidates/residual.tsv</code>.</p>
+<div class="wrap">
+<table>
+  <thead>
+    <tr>
+    {% for col in residual_cols %}<th>{{ col }}</th>{% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+  {% for rec in residuals %}
+    <tr>
+    {% for col in residual_cols %}<td>{{ rec[col] }}</td>{% endfor %}
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p>No residual splice loci. See <code>candidates/residual.tsv</code>.</p>
+{% endif %}
+
+<h2>Gene-like rank</h2>
+{% if gene_ranks %}
+<p class="note">{{ n_ranked }} structure-pass loci ranked by how gene-like they are (ORF + hexamer + Fickett; spliced / intergenic; penalties for unplaced contig, unsupported intron, gag/pol/MLV, intronless copy of a known protein). phyloP + Pfam on the top 40, then re-sorted.{% if gene_ranks and n_ranked > gene_ranks|length %} Showing the top {{ gene_ranks|length }}.{% endif %} See <code>candidates/gene_rank.tsv</code>.</p>
+<div class="wrap">
+<table>
+  <thead>
+    <tr>
+    {% for col in gene_rank_cols %}<th>{{ col }}</th>{% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+  {% for rec in gene_ranks %}
+    <tr>
+    {% for col in gene_rank_cols %}<td>{{ rec[col] }}</td>{% endfor %}
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p>No gene-like ranking. See <code>candidates/gene_rank.tsv</code>.</p>
+{% endif %}
+{% if n_unnamed %}
+<p class="note">{{ n_unnamed }} structure-pass loci are also in control by TPM (<code>candidates/candidates.unnamed.tsv</code>). They are included in the rank.</p>
+{% endif %}
+{% if n_shared %}
+<h2>Shared splice (both groups)</h2>
+<p class="note">{{ n_shared }} structure-pass unannotated loci whose harvest junctions are also in control. This is not the treat-specific final table. See <code>candidates/candidates.shared.tsv</code>.</p>
+{% if shared %}
+<div class="wrap">
+<table>
+  <thead>
+    <tr>
+    {% for col in shared_cols %}<th>{{ col }}</th>{% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+  {% for rec in shared %}
+    <tr>
+    {% for col in shared_cols %}<td>{{ rec[col] }}</td>{% endfor %}
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+{% endif %}
+
+<h2>Orphan (no gene name)</h2>
+{% if orphans %}
+<p class="note">{{ n_orphans }} loci with <code>named_overlap=none</code>. phyloP/phastCons are UCSC conservation on exons. Pfam is HMMER hmmscan. See <code>candidates/orphan.tsv</code>.</p>
+<div class="wrap">
+<table>
+  <thead>
+    <tr>
+    {% for col in orphan_cols %}<th>{{ col }}</th>{% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+  {% for rec in orphans %}
+    <tr>
+    {% for col in orphan_cols %}<td>{{ rec[col] }}</td>{% endfor %}
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p>No unnamed-overlap loci were scored. See <code>candidates/orphan.tsv</code>.</p>
+{% endif %}
+
+<h2>Candidates</h2>
+{% if candidates %}
+<div class="wrap">
+<table>
+  <thead>
+    <tr>
+    {% for col in candidate_cols %}<th>{{ col }}</th>{% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+  {% for rec in candidates %}
+    <tr>
+    {% for col in candidate_cols %}<td>{{ rec[col] }}</td>{% endfor %}
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="note"><code>assembled_in</code> is unused with the residual assembler (per-sample GTFs are stubs). Junction and bridge counts are BAM CIGAR <code>N</code>. <code>de_status=wald</code> is padj + LFC. <code>de_status=low_count</code> is independent-filtering NA (Wald was computed); it is not a significant padj.</p>
+{% else %}
+<p>Empty final table. Structure + detection may still have rows in <code>candidates/candidates.gates.tsv</code>. Evaluated DE non-hits are dropped; independent-filtering NA is not. See <code>candidates/candidates.tsv</code> and <code>quantify/de.tsv</code>.</p>
+{% endif %}
+</body>
+</html>

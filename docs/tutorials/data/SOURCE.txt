@@ -1,0 +1,13 @@
+Snapshot from GSE221720 bone 4v4 (periodontitis ligation vs control),
+TxNova residual assembler, GENCODE M39, output dir
+data/gse221720/txnova_4v4_m39/.
+
+candidates.tsv / candidates.unnamed.tsv / gene_rank.tsv: 2026-08-16
+contrast snapshot (used by t_gse221720_rank_and_fold).
+residual.tsv: GSE221720 harvest catalog (214 loci; t_residual_catalog).
+nearest_distance_bp is the clipped-locus distance (TxNova 0.1.7).
+IDs are not shared across those two snapshots.
+
+Not a new-gene call. Residual IDs are run-local.
+fold/ may be empty if ESMFold was down when the tutorial was built;
+the 3Dmol example is docs/tutorials/data/example.pdb (inline viewer: docs/tutorials/_fold_embed.html).

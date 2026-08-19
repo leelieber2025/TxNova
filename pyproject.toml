@@ -1,0 +1,68 @@
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+[project]
+name = "txnova"
+version = "0.1.7"
+description = "Unannotated spliced residual loci from bulk RNA-seq BAMs"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+license-files = ["LICENSE"]
+authors = [
+    { name = "Zhao Li (李钊)", email = "leelieber@gmail.com" },
+]
+dependencies = [
+  "typer>=0.12",
+  "pydantic>=2.5,<3",
+  "pyyaml>=6.0",
+  "pandas>=2.0,<3",
+  "rich>=13.0",
+  "jinja2>=3.1",
+  "pydeseq2>=0.4",
+  "numpy>=1.23,<3",
+  "scipy>=1.9",
+]
+
+[project.optional-dependencies]
+dev = ["maturin>=1.7,<2", "pytest>=7.0", "ruff", "mypy"]
+docs = [
+    "sphinx>=7.0",
+    "sphinx-book-theme>=1.1",
+    "myst-parser>=2.0",
+    "myst-nb>=1.0",
+    "sphinx-copybutton>=0.5",
+    "sphinx-design>=0.5",
+]
+
+[project.urls]
+Homepage = "https://github.com/leelieber2025/TxNova"
+Documentation = "https://txnova.readthedocs.io"
+Repository = "https://github.com/leelieber2025/TxNova"
+Issues = "https://github.com/leelieber2025/TxNova/issues"
+
+[project.scripts]
+txnova = "txnova.cli:app"
+
+[tool.maturin]
+python-source = "python"
+module-name = "txnova._core"
+manifest-path = "rust/txnova-core/Cargo.toml"
+features = ["pyo3/extension-module"]
+include = [
+  "LICENSE",
+  "README.md",
+  "python/txnova/data/Mouse_Hexamer.tsv",
+  "python/txnova/data/Human_Hexamer.tsv",
+  "python/txnova/data/SOURCE.txt",
+  "python/txnova/templates/report.html.j2",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

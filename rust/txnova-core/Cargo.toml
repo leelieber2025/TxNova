@@ -1,0 +1,24 @@
+[package]
+name = "txnova-core"
+version = "0.1.7"
+edition = "2021"
+rust-version = "1.75"
+license = "Apache-2.0"
+authors = ["Zhao Li (李钊) <leelieber@gmail.com>"]
+description = "TxNova BAM/genome I/O and preflight engine"
+
+[lib]
+name = "txnova_core"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pyo3 = { version = "0.23", features = ["abi3-py310"] }
+rust-htslib = { version = "0.47", default-features = false, features = ["static"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+thiserror = "2"
+
+[features]
+default = []
+extension-module = ["pyo3/extension-module"]
