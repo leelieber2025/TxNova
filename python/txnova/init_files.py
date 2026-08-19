@@ -5,7 +5,7 @@ from pathlib import Path
 from txnova.errors import TxNovaError
 
 CONFIG_TEMPLATE = """\
-species: mouse
+species: auto                  # auto | mouse | human. Only mouse and human are supported.
 output_dir: ./txnova_out
 threads: 0                 # 0 = CPU ceiling; live BAM workers follow MemAvailable. Explicit N is a ceiling.
 
@@ -13,8 +13,8 @@ genome:
   fasta: /path/to/GRCm39.primary_assembly.genome.fa
   annotation: /path/to/gencode.vM39.primary_assembly.annotation.gtf
   annotation_source: GENCODE
-  annotation_version: M39
-  assembly: GRCm39
+  annotation_version: M39              # human: e.g. v47
+  assembly: GRCm39                     # human: GRCh38
   naming_annotation: null          # optional comprehensive GTF to name class-u loci the run annotation omitted
 
 samples: samples.tsv
@@ -30,7 +30,7 @@ filters:
   min_exons: 1              # intronless genes are allowed; splice gate only if n_introns>0
   require_canonical_splice: true
   max_noncanonical_junction_fraction: 0.0
-  min_nearest_same_strand_bp: 500
+  min_nearest_same_strand_bp: 1000
   require_coverage_discontinuity: true
   discontinuity_window_bp: 50
   discontinuity_valley_bp: 200
@@ -40,10 +40,11 @@ filters:
   reject_bridging_junction: true
   bridge_min_reads: 2
   transcript_min_nt: 100
-  control_max_tpm: 1.0
+  control_max_tpm: 0.5
   treat_detect_tpm: 0.1
-  treat_min_detected_replicates: 2
+  treat_min_detected_replicates: 3
   treat_median_tpm: 0.5
+  max_rmsk_frac: 0.1
 
 de:
   enabled: true
@@ -56,7 +57,7 @@ coding:
   require_orf: false
   hexamer_coding_min: 0.0
   hexamer_noncoding_max: 0.0
-  hexamer_table: null      # null = packaged Mouse_Hexamer.tsv
+  hexamer_table: null      # null = packaged table for species (mouse or human)
   fold: true               # AlphaFold DB if named; ESMFold if unnamed ORF
   orphan: true             # named_overlap=none: UCSC phyloP/phastCons + HMMER/Pfam
 """

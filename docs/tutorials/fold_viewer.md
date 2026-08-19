@@ -1,7 +1,7 @@
 # TxNova fold viewer
 
 This is the 3Dmol widget TxNova writes as `fold/<locus>.html` when
-`coding.fold: true`. Colour is pLDDT (blue = confident). The model below
+`coding.fold: true`. Color is pLDDT (blue = confident). The model below
 is a packaged example ORF so the widget still renders if ESMFold is
 unreachable. It is not a GSE221720 residual.
 

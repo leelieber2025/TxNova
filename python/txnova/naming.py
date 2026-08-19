@@ -21,19 +21,25 @@ NAMING_ANNOTATED = "annotated"
 
 def chrom_key(name: str) -> str:
     n = str(name)
-    return n[3:] if n.startswith("chr") else n
+    if n.startswith("chr"):
+        n = n[3:]
+    if n.upper() in {"M", "MT"}:
+        return "MT"
+    return n
 
 
 def load_gene_bodies(gtf: Path) -> dict[str, list[tuple[int, int, str, str, str, str]]]:
     if not gtf.is_file():
         raise TxNovaError(f"naming annotation not found: {gtf}")
     by_chrom: dict[str, list[tuple[int, int, str, str, str, str]]] = defaultdict(list)
+    # gene_id → (chrom_key, start, end, strand, name, type, id)
+    tx_span: dict[str, tuple[str, int, int, str, str, str, str]] = {}
     with gtf.open(encoding="utf-8", errors="replace") as fh:
         for line in fh:
             if not line or line.startswith("#"):
                 continue
             p = line.rstrip("\n").split("\t")
-            if len(p) < 9 or p[2] != "gene":
+            if len(p) < 9 or p[2] not in {"gene", "transcript", "exon"}:
                 continue
             try:
                 start, end = int(p[3]), int(p[4])
@@ -48,7 +54,30 @@ def load_gene_bodies(gtf: Path) -> dict[str, list[tuple[int, int, str, str, str,
                 attrs.get("gene_type") or attrs.get("gene_biotype", ""),
                 attrs.get("gene_id", ""),
             )
-            by_chrom[chrom_key(p[0])].append(rec)
+            ck = chrom_key(p[0])
+            if p[2] == "gene":
+                by_chrom[ck].append(rec)
+                continue
+            gid = rec[5]
+            if not gid:
+                continue
+            prev = tx_span.get(gid)
+            if prev is None:
+                tx_span[gid] = (ck, start, end, rec[2], rec[3], rec[4], gid)
+            else:
+                tx_span[gid] = (
+                    prev[0],
+                    min(prev[1], start),
+                    max(prev[2], end),
+                    prev[3],
+                    prev[4] or rec[3],
+                    prev[5] or rec[4],
+                    gid,
+                )
+    if by_chrom:
+        return by_chrom
+    for ck, start, end, strand, name, typ, gid in tx_span.values():
+        by_chrom[ck].append((start, end, strand, name, typ, gid))
     return by_chrom
 
 

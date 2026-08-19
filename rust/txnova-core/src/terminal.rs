@@ -7,6 +7,7 @@
 use crate::bam;
 use crate::coverage::{aligned_blocks, pass_read, strand_ok};
 use crate::error::{CoreError, Result};
+use crate::fasta;
 use crate::gtf::write_tsv;
 use rust_htslib::bam::Read;
 use serde::Deserialize;
@@ -17,6 +18,7 @@ use std::path::Path;
 #[derive(Debug, Deserialize)]
 struct SampleIn {
     bam: String,
+    #[serde(default)]
     group: String,
     strandedness: String,
     #[serde(default)]
@@ -40,6 +42,8 @@ struct Cfg {
     min_depth: u32,
     #[serde(default = "d_gap")]
     max_gap_nt: u64,
+    #[serde(default)]
+    fasta: Option<String>,
 }
 
 fn d_mapq() -> u8 {
@@ -205,24 +209,35 @@ pub fn extend_terminals(
 ) -> Result<usize> {
     let cfg: Cfg = serde_json::from_str(cfg_json)?;
     let samples: SamplesJson = serde_json::from_str(samples_json)?;
-    let treat: Vec<&SampleIn> = samples.samples.iter().filter(|s| s.group == "treat").collect();
-    if treat.is_empty() {
-        return Err(CoreError::fail("extend_terminals: no treat samples"));
+    if samples.samples.is_empty() {
+        return Err(CoreError::fail("extend_terminals: no samples"));
     }
     let loci = load_loci(Path::new(loci_tsv))?;
     let mut lefts = vec![0u64; loci.len()];
     let mut rights = vec![0u64; loci.len()];
 
     let mut readers: Vec<(rust_htslib::bam::IndexedReader, bool, String, String)> = Vec::new();
-    for sample in &treat {
+    for sample in &samples.samples {
         let skip = skip_dup(&cfg.skip_duplicate, sample.dup_flag_seen);
         let reader = bam::open_indexed(Path::new(&sample.bam))?;
         readers.push((reader, skip, sample.strandedness.clone(), sample.bam.clone()));
     }
 
+    let contig_len = match &cfg.fasta {
+        Some(p) => fasta::fai_map(&fasta::load_fai(Path::new(p))?),
+        None => std::collections::HashMap::new(),
+    };
+
     for (i, loc) in loci.iter().enumerate() {
-        let win_s = loc.intron_start.saturating_sub(cfg.max_terminal_nt).max(1);
-        let win_e = loc.intron_end.saturating_add(cfg.max_terminal_nt);
+        let reach = cfg.max_terminal_nt.saturating_add(1);
+        let win_s = loc.intron_start.saturating_sub(reach).max(1);
+        let mut win_e = loc.intron_end.saturating_add(reach);
+        if let Some(&ln) = contig_len
+            .get(&loc.chrom)
+            .or_else(|| contig_len.get(loc.chrom.strip_prefix("chr").unwrap_or(&loc.chrom)))
+        {
+            win_e = win_e.min(ln);
+        }
         let mut depth = vec![0u32; (win_e - win_s + 1) as usize];
         for (reader, skip, strandedness, bam_path) in readers.iter_mut() {
             add_depth(

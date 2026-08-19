@@ -1,6 +1,9 @@
 # Public mouse bulk smoke
 
-End-to-end check of TxNova on public 2-vs-2 polyA RNA-seq. Large BAMs stay off git.
+End-to-end **contrast** smoke on public 2-vs-2 polyA RNA-seq (control and
+treat both present). The main product is the residual catalog and does
+not need both groups — see [Residual catalog](tutorials/t_residual_catalog.ipynb).
+Large BAMs stay off git.
 
 ## Design
 

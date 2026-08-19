@@ -9,16 +9,34 @@ from pydantic import BaseModel, ConfigDict, Field
 from txnova.errors import TxNovaError
 
 SAMPLE_ID_RE = re.compile(r"^[A-Za-z0-9._-]+$")
-REQUIRED_COLS = ("sample_id", "bam", "group", "strandedness")
+REQUIRED_COLS = ("sample_id", "bam", "strandedness")
+OPTIONAL_COLS = ("group", "replicate")
+ALLOWED_GROUPS = {"control", "treat"}
 
 
 class SampleRow(BaseModel):
     model_config = ConfigDict(extra="forbid")
     sample_id: str
     bam: Path
-    group: str
+    group: str = ""
     strandedness: str
     replicate: int = Field(ge=1)
+
+
+def n_control(rows: list[SampleRow]) -> int:
+    return sum(1 for r in rows if r.group == "control")
+
+
+def n_treat(rows: list[SampleRow]) -> int:
+    return sum(1 for r in rows if r.group == "treat")
+
+
+def has_contrast(rows: list[SampleRow]) -> bool:
+    return n_control(rows) >= 1 and n_treat(rows) >= 1
+
+
+def can_run_de(rows: list[SampleRow]) -> bool:
+    return n_control(rows) >= 2 and n_treat(rows) >= 2
 
 
 def load_samples(path: Path) -> list[SampleRow]:
@@ -29,7 +47,7 @@ def load_samples(path: Path) -> list[SampleRow]:
     missing = [c for c in REQUIRED_COLS if c not in df.columns]
     if missing:
         raise TxNovaError(f"sample sheet missing columns: {missing}")
-    extra = [c for c in df.columns if c not in (*REQUIRED_COLS, "replicate")]
+    extra = [c for c in df.columns if c not in (*REQUIRED_COLS, *OPTIONAL_COLS)]
     if extra:
         raise TxNovaError(f"sample sheet has unknown columns {extra}; extra=forbid")
     if df.empty:
@@ -37,7 +55,7 @@ def load_samples(path: Path) -> list[SampleRow]:
 
     rows: list[SampleRow] = []
     seen: set[str] = set()
-    group_ord: dict[str, int] = {"control": 0, "treat": 0}
+    group_ord: dict[str, int] = {}
     for i, rec in enumerate(df.to_dict(orient="records"), start=2):
         sid = str(rec["sample_id"]).strip()
         if not SAMPLE_ID_RE.match(sid):
@@ -45,8 +63,8 @@ def load_samples(path: Path) -> list[SampleRow]:
         if sid in seen:
             raise TxNovaError(f"duplicate sample_id {sid}")
         seen.add(sid)
-        group = str(rec["group"]).strip()
-        if group not in {"control", "treat"}:
+        group = str(rec.get("group", "")).strip()
+        if group and group not in ALLOWED_GROUPS:
             raise TxNovaError(
                 f"line {i}: group must be control|treat, got {group!r} (no case/ko/wt aliases)"
             )
@@ -64,8 +82,9 @@ def load_samples(path: Path) -> list[SampleRow]:
             except ValueError as e:
                 raise TxNovaError(f"line {i}: replicate must be an integer") from e
         else:
-            group_ord[group] += 1
-            replicate = group_ord[group]
+            key = group or "_cohort"
+            group_ord[key] = group_ord.get(key, 0) + 1
+            replicate = group_ord[key]
         rows.append(
             SampleRow(
                 sample_id=sid,

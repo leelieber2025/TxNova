@@ -111,23 +111,33 @@ impl FastaIndex {
                 rec.length
             )));
         }
+        let start_idx = start - 1;
+        let end_idx = end - 1;
+        let start_off = rec.offset
+            + (start_idx / rec.linebases) * rec.linewidth
+            + (start_idx % rec.linebases);
+        let end_off = rec.offset
+            + (end_idx / rec.linebases) * rec.linewidth
+            + (end_idx % rec.linebases);
+        let nbytes = (end_off - start_off + 1) as usize;
         let mut f = File::open(&self.path)?;
+        f.seek(SeekFrom::Start(start_off))?;
+        let mut buf = vec![0u8; nbytes];
+        f.read_exact(&mut buf)?;
         let mut out = Vec::with_capacity((end - start + 1) as usize);
-        for pos in start..=end {
-            let idx = pos - 1;
-            let row = idx / rec.linebases;
-            let col = idx % rec.linebases;
-            let off = rec.offset + row * rec.linewidth + col;
-            f.seek(SeekFrom::Start(off))?;
-            let mut b = [0u8; 1];
-            f.read_exact(&mut b)?;
-            let c = b[0].to_ascii_uppercase();
+        for &b in &buf {
+            let c = b.to_ascii_uppercase();
             if c == b'\n' || c == b'\r' {
-                return Err(CoreError::fail(format!(
-                    "FASTA .fai offset landed on newline at {chrom}:{pos}"
-                )));
+                continue;
             }
             out.push(c);
+        }
+        if out.len() != (end - start + 1) as usize {
+            return Err(CoreError::fail(format!(
+                "FASTA fetch {chrom}:{start}-{end} decoded {} bases, expected {}",
+                out.len(),
+                end - start + 1
+            )));
         }
         Ok(out)
     }

@@ -96,7 +96,11 @@ def test_detect_gate(tmp_path: Path) -> None:
     counts = tmp_path / "cnt.tsv"
     counts.write_text("locus_id\tc1\tc2\tt1\tt2\nL1\t0\t0\t10\t12\n")
     cfg = TxNovaConfig.model_validate(
-        {"genome": {"fasta": "/a.fa", "annotation": "/a.gtf"}, "samples": "/s.tsv"}
+        {
+            "genome": {"fasta": "/a.fa", "annotation": "/a.gtf"},
+            "samples": "/s.tsv",
+            "filters": {"treat_min_detected_replicates": 2},
+        }
     )
     rows = [
         SampleRow(
@@ -167,7 +171,11 @@ def test_control_expressed_goes_to_unnamed(tmp_path: Path) -> None:
     counts = tmp_path / "cnt.tsv"
     counts.write_text("locus_id\tc1\tc2\tt1\tt2\nL1\t4\t6\t10\t12\n")
     cfg = TxNovaConfig.model_validate(
-        {"genome": {"fasta": "/a.fa", "annotation": "/a.gtf"}, "samples": "/s.tsv"}
+        {
+            "genome": {"fasta": "/a.fa", "annotation": "/a.gtf"},
+            "samples": "/s.tsv",
+            "filters": {"treat_min_detected_replicates": 2},
+        }
     )
     rows = [
         SampleRow(
@@ -231,7 +239,11 @@ def test_bridge_rejects_readthrough(tmp_path: Path) -> None:
     counts = tmp_path / "cnt.tsv"
     counts.write_text("locus_id\tc1\tc2\tt1\tt2\nL1\t0\t0\t10\t12\n")
     cfg = TxNovaConfig.model_validate(
-        {"genome": {"fasta": "/a.fa", "annotation": "/a.gtf"}, "samples": "/s.tsv"}
+        {
+            "genome": {"fasta": "/a.fa", "annotation": "/a.gtf"},
+            "samples": "/s.tsv",
+            "filters": {"treat_min_detected_replicates": 2},
+        }
     )
     rows = [
         SampleRow(
@@ -295,7 +307,11 @@ def _minimal_gate_inputs(tmp_path: Path, treat_tpms: str, has_nearest: str, dist
     counts = tmp_path / "cnt.tsv"
     counts.write_text("locus_id\tc1\tc2\tt1\tt2\nL1\t0\t0\t10\t12\n")
     cfg = TxNovaConfig.model_validate(
-        {"genome": {"fasta": "/a.fa", "annotation": "/a.gtf"}, "samples": "/s.tsv"}
+        {
+            "genome": {"fasta": "/a.fa", "annotation": "/a.gtf"},
+            "samples": "/s.tsv",
+            "filters": {"treat_min_detected_replicates": 2},
+        }
     )
     cfg.filters.require_coverage_discontinuity = False
     cfg.filters.min_nearest_same_strand_bp = 0
@@ -371,7 +387,11 @@ def test_empty_candidates_have_full_schema(tmp_path: Path) -> None:
     reps = tmp_path / "reps.tsv"
     pick_representative_transcript(class_tsv, reps)
     cfg = TxNovaConfig.model_validate(
-        {"genome": {"fasta": "/a.fa", "annotation": "/a.gtf"}, "samples": "/s.tsv"}
+        {
+            "genome": {"fasta": "/a.fa", "annotation": "/a.gtf"},
+            "samples": "/s.tsv",
+            "filters": {"treat_min_detected_replicates": 2},
+        }
     )
     rows = [
         SampleRow(
@@ -427,7 +447,11 @@ def test_missing_tpm_locus_is_error(tmp_path: Path) -> None:
     tpm = tmp_path / "tpm.tsv"
     tpm.write_text("locus_id\tc1\tt1\nOTHER\t0.0\t1.0\n")
     cfg = TxNovaConfig.model_validate(
-        {"genome": {"fasta": "/a.fa", "annotation": "/a.gtf"}, "samples": "/s.tsv"}
+        {
+            "genome": {"fasta": "/a.fa", "annotation": "/a.gtf"},
+            "samples": "/s.tsv",
+            "filters": {"treat_min_detected_replicates": 2},
+        }
     )
     rows = [
         SampleRow(
@@ -482,7 +506,11 @@ def test_missing_gap_mean_column_is_error(tmp_path: Path) -> None:
     counts = tmp_path / "cnt.tsv"
     counts.write_text("locus_id\tc1\tt1\tt2\nL1\t0\t10\t12\n")
     cfg = TxNovaConfig.model_validate(
-        {"genome": {"fasta": "/a.fa", "annotation": "/a.gtf"}, "samples": "/s.tsv"}
+        {
+            "genome": {"fasta": "/a.fa", "annotation": "/a.gtf"},
+            "samples": "/s.tsv",
+            "filters": {"treat_min_detected_replicates": 2},
+        }
     )
     rows = [
         SampleRow(
@@ -540,7 +568,11 @@ def test_missing_structure_error_column_is_error(tmp_path: Path) -> None:
     counts = tmp_path / "cnt.tsv"
     counts.write_text("locus_id\tc1\tt1\tt2\nL1\t0\t10\t12\n")
     cfg = TxNovaConfig.model_validate(
-        {"genome": {"fasta": "/a.fa", "annotation": "/a.gtf"}, "samples": "/s.tsv"}
+        {
+            "genome": {"fasta": "/a.fa", "annotation": "/a.gtf"},
+            "samples": "/s.tsv",
+            "filters": {"treat_min_detected_replicates": 2},
+        }
     )
     rows = [
         SampleRow(
@@ -602,7 +634,11 @@ def test_junction_support_length_must_match_n_introns(tmp_path: Path) -> None:
     counts = tmp_path / "cnt.tsv"
     counts.write_text("locus_id\tc1\tc2\tt1\tt2\nL1\t0\t0\t10\t12\n")
     cfg = TxNovaConfig.model_validate(
-        {"genome": {"fasta": "/a.fa", "annotation": "/a.gtf"}, "samples": "/s.tsv"}
+        {
+            "genome": {"fasta": "/a.fa", "annotation": "/a.gtf"},
+            "samples": "/s.tsv",
+            "filters": {"treat_min_detected_replicates": 2},
+        }
     )
     rows = [
         SampleRow(
@@ -668,7 +704,11 @@ def test_transcribed_gap_rejected_despite_empty_valley(tmp_path: Path) -> None:
     counts = tmp_path / "cnt.tsv"
     counts.write_text("locus_id\tc1\tc2\tt1\tt2\nL1\t0\t0\t10\t12\n")
     cfg = TxNovaConfig.model_validate(
-        {"genome": {"fasta": "/a.fa", "annotation": "/a.gtf"}, "samples": "/s.tsv"}
+        {
+            "genome": {"fasta": "/a.fa", "annotation": "/a.gtf"},
+            "samples": "/s.tsv",
+            "filters": {"treat_min_detected_replicates": 2},
+        }
     )
     rows = [
         SampleRow(
@@ -729,7 +769,11 @@ def test_empty_intergenic_gap_passes(tmp_path: Path) -> None:
     counts = tmp_path / "cnt.tsv"
     counts.write_text("locus_id\tc1\tc2\tt1\tt2\nL1\t0\t0\t10\t12\n")
     cfg = TxNovaConfig.model_validate(
-        {"genome": {"fasta": "/a.fa", "annotation": "/a.gtf"}, "samples": "/s.tsv"}
+        {
+            "genome": {"fasta": "/a.fa", "annotation": "/a.gtf"},
+            "samples": "/s.tsv",
+            "filters": {"treat_min_detected_replicates": 2},
+        }
     )
     rows = [
         SampleRow(
@@ -809,7 +853,11 @@ def test_monoexon_passes_without_splice_gate(tmp_path: Path) -> None:
     counts = tmp_path / "cnt.tsv"
     counts.write_text("locus_id\tc1\tc2\tt1\tt2\nL1\t0\t0\t10\t12\n")
     cfg = TxNovaConfig.model_validate(
-        {"genome": {"fasta": "/a.fa", "annotation": "/a.gtf"}, "samples": "/s.tsv"}
+        {
+            "genome": {"fasta": "/a.fa", "annotation": "/a.gtf"},
+            "samples": "/s.tsv",
+            "filters": {"treat_min_detected_replicates": 2},
+        }
     )
     cand = apply_gates(
         cfg,
@@ -856,7 +904,11 @@ def test_monoexon_still_fails_distance(tmp_path: Path) -> None:
     counts = tmp_path / "cnt.tsv"
     counts.write_text("locus_id\tc1\tc2\tt1\tt2\nL1\t0\t0\t10\t12\n")
     cfg = TxNovaConfig.model_validate(
-        {"genome": {"fasta": "/a.fa", "annotation": "/a.gtf"}, "samples": "/s.tsv"}
+        {
+            "genome": {"fasta": "/a.fa", "annotation": "/a.gtf"},
+            "samples": "/s.tsv",
+            "filters": {"treat_min_detected_replicates": 2},
+        }
     )
     cand = apply_gates(
         cfg,
@@ -869,3 +921,54 @@ def test_monoexon_still_fails_distance(tmp_path: Path) -> None:
         out_dir=tmp_path / "cand",
     )
     assert cand.empty
+
+
+def test_discovery_only_keeps_structure_pass(tmp_path: Path) -> None:
+    class_tsv = tmp_path / "c.tsv"
+    class_tsv.write_text(
+        "transcript_id\tgene_id\tchrom\tstart\tend\tstrand\tn_exons\tlength_nt\texon_structure\tclass\tgene_name\n"
+        "T1\tL1\tchr1\t1000\t2000\t+\t2\t400\t1000-1200,1800-2000\tu\t\n",
+        encoding="utf-8",
+    )
+    reps = tmp_path / "reps.tsv"
+    pick_representative_transcript(class_tsv, reps)
+    struct = tmp_path / "s.tsv"
+    struct.write_text(
+        "locus_id\tsample_id\ttranscript_id\tchrom\tstart\tend\tstrand\tn_exons\tlength_nt\t"
+        "donors\tacceptors\tcanonical_splice_fraction\tn_introns\thas_nearest\t"
+        "nearest_gene_id\tnearest_gene_name\tnearest_distance_bp\tnearest_strand\t"
+        "nearest_any_gene_id\tnearest_any_gene_name\tnearest_any_distance_bp\tnearest_any_strand\t"
+        "locus_mean_depth\tvalley_mean\tvalley_possible\tgap_mean_depth\tn_dup_flag_seen\t"
+        "junction_support\tbridge_read_count\tstructure_error\n"
+        "L1\ta\tT1\tchr1\t1000\t2000\t+\t2\t400\tGT\tAG\t1.0\t1\tfalse\t"
+        "\t\t\t\t\t\t\t\t10\t\t\t\t0\t12\t0\n"
+        "L1\tb\tT1\tchr1\t1000\t2000\t+\t2\t400\tGT\tAG\t1.0\t1\tfalse\t"
+        "\t\t\t\t\t\t\t\t10\t\t\t\t0\t8\t0\n",
+        encoding="utf-8",
+    )
+    tpm = tmp_path / "tpm.tsv"
+    tpm.write_text("locus_id\ta\tb\nL1\t5.0\t6.0\n")
+    counts = tmp_path / "cnt.tsv"
+    counts.write_text("locus_id\ta\tb\nL1\t10\t12\n")
+    cfg = TxNovaConfig.model_validate(
+        {
+            "genome": {"fasta": "/a.fa", "annotation": "/a.gtf"},
+            "samples": "/s.tsv",
+        }
+    )
+    rows = [
+        SampleRow(sample_id="a", bam=Path("/a.bam"), group="", strandedness="rf", replicate=1),
+        SampleRow(sample_id="b", bam=Path("/b.bam"), group="", strandedness="rf", replicate=2),
+    ]
+    cand = apply_gates(
+        cfg,
+        rows,
+        class_tsv=class_tsv,
+        reps_tsv=reps,
+        structure_tsv=struct,
+        locus_tpm=tpm,
+        locus_counts=counts,
+        out_dir=tmp_path / "cand",
+    )
+    assert len(cand) == 1
+    assert cand.iloc[0]["locus_id"] == "L1"

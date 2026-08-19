@@ -1,5 +1,5 @@
 {% set name = "txnova" %}
-{% set version = "0.1.5" %}
+{% set version = "0.1.6" %}
 
 package:
   name: {{ name }}
@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: "PLEASE_UPDATE_AFTER_PYPI_UPLOAD"
+  sha256: "c8989eba1e2efe10203102bede16cb8c420658c90b5f098c6110fd14c3ca77f3"
 
 build:
   number: 0
@@ -22,6 +22,7 @@ requirements:
   build:
     - {{ compiler('c') }}
     - {{ compiler('rust') }}
+    - {{ stdlib('c') }}
   host:
     - python >=3.10
     - pip
@@ -64,7 +65,5 @@ extra:
   recipe-maintainers:
     - leelieber2025
   notes: |
-    No external assembler binary is required at runtime (StringTie is not a
-    dependency). Input is a coordinate-sorted, indexed BAM from STAR or
-    HISAT2 -- TxNova does not align. Windows is not built (skip: true [win]);
-    Windows users should run TxNova under WSL2.
+    Input is a coordinate-sorted, indexed BAM from STAR or HISAT2.
+    Windows is not built; use WSL2.

@@ -4,9 +4,11 @@ import pandas as pd
 
 from pathlib import Path
 
+from txnova.errors import TxNovaError
 from txnova.residual import (
     apply_terminal_extents,
     clip_terminals_from_genes,
+    clip_to_contig,
     close_to_small_rna,
     cluster_leak,
     cluster_junctions,
@@ -239,7 +241,12 @@ def test_drops_antisense_gene_body_keeps_nearby_nonoverlap(tmp_path: Path) -> No
     assert list(out["chrom"]) == ["chr6"]
 
 
-def test_drops_chain_that_walks_over_a_gene(tmp_path: Path) -> None:
+def test_does_not_chain_across_a_remaining_gene(tmp_path: Path) -> None:
+    """A gene in the gap blocks chaining; each side stays its own locus.
+
+    Previously the two junctions merged, the span overlapped the gene, and
+    both sides were discarded.
+    """
     gtf = tmp_path / "genes.gtf"
     gtf.write_text(
         'chr7\tX\tgene\t2000\t4000\t.\t+\t.\tgene_id "G"; gene_name "Block"; gene_type "protein_coding";\n',
@@ -252,7 +259,10 @@ def test_drops_chain_that_walks_over_a_gene(tmp_path: Path) -> None:
         ]
     )
     out, _ = cluster_leak(leak, genes=merge_gene_bodies([gtf]))
-    assert out.empty
+    assert len(out) == 2
+    starts = sorted(int(x) for x in out["start"])
+    # 30 nt stubs: 1000-30=970 and 5000-30=4970
+    assert starts == [970, 4970]
 
 
 def test_naming_gtf_does_not_apply_distance_either_strand(tmp_path: Path) -> None:
@@ -529,7 +539,8 @@ def test_drops_snrna_1bp_keeps_protein_1kb(tmp_path: Path) -> None:
     assert set(out["chrom"]) == {"chr4"}
 
 
-def test_coverage_stub_terminal_is_degenerate() -> None:
+def test_coverage_stub_terminal_keeps_intron_chain() -> None:
+    """A short terminal is missing coverage, not a reason to drop the intron."""
     df = pd.DataFrame(
         [
             {
@@ -547,6 +558,8 @@ def test_coverage_stub_terminal_is_degenerate() -> None:
                 "nearest_gene_name": "Far",
                 "nearest_distance_bp": 12000,
                 "control_max": 0,
+                "control_n_detected": 0,
+                "cohort": "silent",
                 "treat_sum": 8,
                 "treat_n_detected": 3,
                 "n_shared_site": 0,
@@ -564,5 +577,61 @@ def test_coverage_stub_terminal_is_degenerate() -> None:
         ]
     )
     out, n_deg = apply_terminal_extents(df, extents)
-    assert out.empty
-    assert n_deg == 1
+    assert n_deg == 0
+    assert len(out) == 1
+    assert str(out.iloc[0]["residual_id"]) == "RSDL.1"
+    exons = str(out.iloc[0]["exon_structure"]).split(",")
+    assert len(exons) == 2
+
+
+def test_naming_gtf_union_rejects_known_gene(tmp_path: Path) -> None:
+    """Harvest knives use annotation ∪ naming_annotation.
+
+    A mask-and-recall run that leaves the hidden gene in naming_annotation
+    will drop every target. Both GTFs must omit the same gene_ids.
+    """
+    run_gtf = tmp_path / "run.gtf"
+    run_gtf.write_text(
+        'chr2\tX\tgene\t1\t10\t.\t+\t.\tgene_id "OTHER"; gene_name "Far"; '
+        'gene_type "protein_coding";\n',
+        encoding="utf-8",
+    )
+    naming = tmp_path / "naming.gtf"
+    naming.write_text(
+        'chr1\tX\tgene\t900\t1300\t.\t+\t.\tgene_id "MASK"; '
+        'gene_name "Col9a1"; gene_type "protein_coding";\n',
+        encoding="utf-8",
+    )
+    src = tmp_path / "leak.tsv"
+    pd.DataFrame([_junc("chr1", 1000, 1100, "+")]).to_csv(src, sep="\t", index=False)
+    kept = write_residuals(src, tmp_path / "keep.tsv", gene_gtfs=[run_gtf])
+    assert len(kept) == 1
+    dropped = write_residuals(src, tmp_path / "drop.tsv", gene_gtfs=[run_gtf, naming])
+    assert dropped.empty
+
+
+def test_missing_or_empty_gtf_is_an_error(tmp_path: Path) -> None:
+    missing = tmp_path / "nope.gtf"
+    try:
+        merge_gene_bodies([missing])
+    except TxNovaError as e:
+        assert "not found" in str(e)
+    else:
+        raise AssertionError("expected missing GTF to raise")
+    empty = tmp_path / "empty.gtf"
+    empty.write_text("# only a comment\n", encoding="utf-8")
+    try:
+        merge_gene_bodies([empty])
+    except TxNovaError as e:
+        assert "no gene or transcript" in str(e)
+    else:
+        raise AssertionError("expected empty GTF to raise")
+
+
+def test_terminal_clipped_to_contig() -> None:
+    chain = [{"chrom": "chr1", "start": 90, "end": 95, "strand": "+"}]
+    struct, n_exons, start, end = exon_structure(chain, flank=30, contig_end=100)
+    assert end == 100
+    assert n_exons == 2
+    assert clip_to_contig("chr1", 500, {"chr1": 100}) == 100
+    assert clip_to_contig("chrM", 20, {"MT": 16}) == 16

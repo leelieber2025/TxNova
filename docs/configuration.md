@@ -13,7 +13,7 @@ directory the config file is in, not your current working directory.
 
 | Field | Type | Default | Meaning |
 |---|---|---|---|
-| `species` | string | `mouse` | Provenance only. The packaged hexamer table is always mouse; this field does not switch tables. |
+| `species` | `auto`, `mouse`, or `human` | `auto` | Packaged hexamer table. `auto` reads the GTF then `genome.assembly`. `mouse` / `human` force that species (must match the GTF). Only mouse and human are supported. |
 | `output_dir` | path | `./txnova_out` | Everything TxNova writes goes under here. See [Output reference](outputs.md). |
 | `threads` | int ≥ 0 | `0` | `0` means "use up to the CPU ceiling"; the *live* number of parallel BAM workers is further capped by available memory at run time, not just this number. An explicit `N` is a hard ceiling, not a target. |
 | `genome` | object | — | Required. See [`genome`](#genome). |
@@ -31,8 +31,9 @@ directory the config file is in, not your current working directory.
 | `annotation` | path | — | Required. **This is the universe TxNova assembles against and classifies class `u` from.** Use a comprehensive annotation (e.g. GENCODE "comprehensive"), not a trimmed reference-package GTF — a thin annotation makes known genes look intergenic. |
 | `annotation_source` | string | `GENCODE` | Provenance metadata, printed in the report. |
 | `annotation_version` | string | `M39` | Provenance metadata, printed in the report. |
-| `assembly` | string | `GRCm39` | Provenance metadata, printed in the report and used to tag structure/orphan lookups (e.g. UCSC track selection). |
+| `assembly` | string | `GRCm39` | UCSC conservation (`GRCm39`/`mm39` or `GRCh38`/`hg38`). If omitted and the GTF is human, set to `GRCh38`. |
 | `naming_annotation` | path or `null` | `null` | Optional **second** GTF used only to *name* class-`u` loci that `annotation` doesn't have a gene body for. It is never used for class assignment or the distance gate — only `named_gene_name` / `named_overlap`. Residual harvest also uses it for the 200 nt same-strand knife. |
+| `rmsk_bed` | path or `null` | `null` | RepeatMasker BED (chrom start end name family). When set, `filters.max_rmsk_frac` is applied. |
 
 ## `quantify`
 
@@ -41,7 +42,7 @@ residual loci), not just the final candidates.
 
 | Field | Type | Default | Meaning |
 |---|---|---|---|
-| `min_mapq` | int | `10` | Minimum mapping quality for a read to be counted. |
+| `min_mapq` | int | `10` | Minimum mapping quality (Phred; 10 ≈ 90%). Common counting floor. |
 | `require_unique_nh` | bool | `false` | If `true`, drop reads unless `NH:i:1`. Multi-mappers are never down-weighted. |
 | `library_layout` | `auto` \| `paired` \| `single` | `auto` | `auto` detects paired vs. single-end per BAM during preflight. Set explicitly only if you want preflight to *reject* a BAM that doesn't match. |
 | `skip_duplicate` | `auto` \| `always` \| `never` | `auto` | Whether to skip reads flagged `0x400` (PCR/optical duplicate). `auto` counts all reads if preflight didn't see any duplicate-flagged reads in the BAM (i.e. you likely didn't mark duplicates), and skips them otherwise. |
@@ -57,9 +58,9 @@ DE and coding, which are separate stages).
 |---|---|---|---|
 | `class` | `u` (fixed) | `u` | Only `u` (fully intergenic) is supported. |
 | `min_exons` | int ≥ 1 | `1` | Minimum exon count. `1` allows intronless loci through; the splice-canonicity gate below only applies when a locus actually has introns. |
-| `require_canonical_splice` | bool | `true` | Reject loci whose scored introns are not **GT-AG or GC-AG** (transcript strand). AT-AC is not canonical here. |
+| `require_canonical_splice` | bool | `true` | Reject loci whose scored introns are not **GT-AG or GC-AG** (transcript strand). Those are the U2-type pair; AT-AC (U12) is not canonical here. |
 | `max_noncanonical_junction_fraction` | float [0, 1] | `0.0` | Fraction of a locus's junctions allowed to be non-canonical before it's rejected (with `require_canonical_splice: true`). `0.0` = zero tolerance. |
-| `min_nearest_same_strand_bp` | int ≥ 0 | `500` | Minimum distance (bp) to the nearest same-strand annotated gene. Below this, a locus is treated as too close to be confidently intergenic. |
+| `min_nearest_same_strand_bp` | int ≥ 0 | `1000` | Minimum distance (bp) to the nearest same-strand annotated gene. Below this, a locus is treated as too close to be confidently intergenic. The default follows the ≥1 kb operational cutoff used for lincRNA catalogues, not typical gene–gene spacing (tens of kb). |
 | `require_coverage_discontinuity` | bool | `true` | Require a real coverage gap (valley) between the locus and its neighbor, not just annotation-based distance — guards against a locus that's actually the UTR/readthrough of an adjacent gene. |
 | `discontinuity_window_bp` | int ≥ 1 | `50` | Window size (bp) used to sample coverage on either side of a candidate discontinuity. |
 | `discontinuity_valley_bp` | int ≥ 1 | `200` | Length (bp) of the low-coverage valley required between locus and neighbor. |
@@ -68,15 +69,17 @@ DE and coding, which are separate stages).
 | `discontinuity_min_treat_samples` | int ≥ 1 or `null` | `1` | Minimum number of treat samples that must independently show the discontinuity. |
 | `reject_bridging_junction` | bool | `true` | Reject a locus if there's a spliced read bridging it to the nearest same-strand gene — that's evidence it's actually part of that gene's transcript, not a separate locus. |
 | `bridge_min_reads` | int ≥ 1 | `2` | Minimum spliced-bridge read count needed to trigger the rejection above. |
-| `transcript_min_nt` | int ≥ 1 | `100` | Minimum transcript length (nt) for a candidate. |
-| `control_max_tpm` | float ≥ 0 | `1.0` | Control-group **maximum** TPM must be **below** this for the **final** table. At or above → `candidates.unnamed.tsv` (also in control by interval TPM). Does not decide `candidates.shared.tsv` (that is a splice in both groups). |
-| `treat_detect_tpm` | float ≥ 0 | `0.1` | TPM threshold above which a treat sample counts as "detecting" the locus. |
-| `treat_min_detected_replicates` | int ≥ 1 | `2` | Minimum number of treat samples that must clear `treat_detect_tpm` ("recurrent in treat", not a one-off). Preflight also enforces this as a minimum sample count. |
-| `treat_median_tpm` | float ≥ 0 | `0.5` | Median TPM across treat samples must be at least this. |
+| `transcript_min_nt` | int ≥ 1 | `100` | Minimum spliced length (nt). Not the 200 nt lncRNA biotype cutoff — a shorter two-exon residual is still shown. |
+| `control_max_tpm` | float ≥ 0 | `0.5` | Contrast only. Control **maximum** TPM must be **below** this for the **final** table. At or above → `candidates.unnamed.tsv`. Ignored when the sheet has no control+treat. |
+| `max_rmsk_frac` | float 0–1 | `0.1` | Drop a locus if RepeatMasker covers this fraction of spliced length. Applied only when `genome.rmsk_bed` is set. |
+| `treat_detect_tpm` | float ≥ 0 | `0.1` | Sample “detecting” the locus. Near the RNA-seq active/background floor. With a contrast, only treat samples count. |
+| `treat_min_detected_replicates` | int ≥ 1 | `3` | Contrast only. Treat samples that must clear `treat_detect_tpm` for a locus to enter the final table. Harvest recurrence stays $r_{min}=2$ on the whole cohort. |
+| `treat_median_tpm` | float ≥ 0 | `0.5` | Contrast only. Treat median TPM. Half of the TPM 1 “on” line. |
 
 If your final table is empty, `control_max_tpm` / `treat_detect_tpm` /
 `treat_median_tpm` / `discontinuity_*` are the first knobs to loosen — see
-the [FAQ](faq.md#candidatestsv-is-empty).
+the [FAQ](faq.md#candidatestsv-is-empty). Without control+treat, the final
+table is the structure-pass residual set (no contrast filter).
 
 ## `de`
 
@@ -86,9 +89,9 @@ transcriptome. The DE *filter* then keeps only gate-passing loci.
 
 | Field | Type | Default | Meaning |
 |---|---|---|---|
-| `enabled` | bool | `true` | Set `false` to skip DE and take every gate-passing locus straight to coding/candidates (needs `de.enabled: false` if you have only 1 replicate per group, since DE needs ≥2 vs. ≥2 — preflight enforces this). |
-| `padj` | float (0, 1] | `0.05` | BH-adjusted p-value cutoff. |
-| `min_log2fc` | float | `0.5` | Minimum **signed** log2 fold change (treat minus control). Only treat-up loci pass. |
+| `enabled` | bool | `true` | Contrast only. Skipped automatically unless the sheet has ≥2 control and ≥2 treat. Set `false` to skip DE even then. |
+| `padj` | float (0, 1] | `0.05` | BH FDR cutoff (standard). |
+| `min_log2fc` | float | `0.5` | Minimum **signed** log2 fold change (treat minus control; ≥1.4-fold). Only treat-up loci pass. |
 
 A locus with `de_status = wald` met both `padj` and `min_log2fc`. A locus
 with `de_status = low_count` has `padj` NA (DESeq2 independent filtering) but
@@ -104,11 +107,11 @@ gate-(and DE-)passing loci. Runs after `filters` and `de`.
 | Field | Type | Default | Meaning |
 |---|---|---|---|
 | `enabled` | bool | `true` | Set `false` to skip the entire coding stage — `candidates.tsv` will still have structural/DE columns, just no ORF/coding/structure/conservation columns. |
-| `min_orf_aa` | int ≥ 1 | `50` | Minimum ORF length (amino acids) to be reported as `longest_orf_aa`; also the cutoff used by `require_orf`. |
+| `min_orf_aa` | int ≥ 1 | `50` | Minimum ORF length (aa) to report. Conventional small-ORF boundary; CPAT searches from 75 nt. |
 | `require_orf` | bool | `false` | If `true`, drop loci without a complete ORF of at least `min_orf_aa`. Off by default — many real intergenic loci are noncoding. |
 | `hexamer_coding_min` | float | `0.0` | Hexamer log-likelihood above which a locus is called `coding_label = coding`. Published CPAT cutoffs do not apply. |
 | `hexamer_noncoding_max` | float | `0.0` | Score at or below which a locus is called `noncoding`. Between `hexamer_noncoding_max` and `hexamer_coding_min` is ambiguous. |
-| `hexamer_table` | path or `null` | `null` | `null` uses the packaged mouse hexamer table (`python/txnova/data/Mouse_Hexamer.tsv`). Pass your own TSV to score a different species. |
+| `hexamer_table` | path or `null` | `null` | `null` uses the packaged CPAT table for the resolved species (`Mouse_Hexamer.tsv` or `Human_Hexamer.tsv`). |
 | `fold` | bool | `true` | Build 3D models for the **top 30** gene-like loci — AlphaFold DB for named loci, ESMFold for unnamed ones. **Requires internet access.** Network failures are recorded as warnings, not fatal. |
 | `orphan` | bool | `true` | Same top 30: UCSC conservation (phyloP/phastCons) and EBI HMMER/Pfam. **Requires internet access.** Same fail-soft behavior. |
 

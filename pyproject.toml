@@ -4,8 +4,8 @@ build-backend = "maturin"
 
 [project]
 name = "txnova"
-version = "0.1.5"
-description = "Experimental-group-specific novel intergenic transcripts from bulk RNA-seq BAMs"
+version = "0.1.6"
+description = "Unannotated spliced residual loci from bulk RNA-seq BAMs"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
@@ -54,6 +54,7 @@ include = [
   "LICENSE",
   "README.md",
   "python/txnova/data/Mouse_Hexamer.tsv",
+  "python/txnova/data/Human_Hexamer.tsv",
   "python/txnova/data/SOURCE.txt",
   "python/txnova/templates/report.html.j2",
 ]

@@ -118,7 +118,7 @@ def _funnel(out: Path) -> list[dict[str, Any]]:
     if leak.is_file():
         ldf = pd.read_csv(leak, sep="\t")
         if ldf.empty or "status" not in ldf.columns:
-            rows.append({"label": "leak (treat-recurrent splice, not a candidate)", "n": 0})
+            rows.append({"label": "leak (cohort-recurrent splice, not a candidate)", "n": 0})
         else:
             n_un = int((ldf["status"] == "unassembled").sum())
             n_au = int((ldf["status"] == "assembled_u").sum())
@@ -142,11 +142,12 @@ def _funnel(out: Path) -> list[dict[str, Any]]:
             n_all = int(len(rdf))
             n_multi = int((rdf["n_junctions"] >= 2).sum()) if "n_junctions" in rdf.columns else 0
             n_geneish = 0
-            if {"n_exons", "treat_n_detected"}.issubset(rdf.columns):
-                n_geneish = int(((rdf["n_exons"] >= 3) & (rdf["treat_n_detected"] >= 3)).sum())
+            n_col = "n_detected" if "n_detected" in rdf.columns else "treat_n_detected"
+            if {"n_exons", n_col}.issubset(rdf.columns):
+                n_geneish = int(((rdf["n_exons"] >= 3) & (rdf[n_col] >= 3)).sum())
             rows.append({"label": "residual splice loci (unassembled intergenic)", "n": n_all})
             rows.append({"label": "residual ≥2 junctions", "n": n_multi})
-            rows.append({"label": "residual ≥3 exons, treat_n≥3", "n": n_geneish})
+            rows.append({"label": "residual ≥3 exons, n_detected≥3", "n": n_geneish})
     gr = out / "candidates" / "gene_rank.tsv"
     if gr.is_file():
         gdf = _read_tsv(gr)
@@ -172,6 +173,8 @@ LEAK_COLS = [
     "nearest_gene_name",
     "nearest_distance_bp",
     "control_max",
+    "support_sum",
+    "n_detected",
     "treat_sum",
     "treat_n_detected",
     "cohort",
@@ -188,8 +191,9 @@ def _leak_records(path: Path) -> tuple[list[str], list[dict[str, str]], int]:
     if df.empty:
         return [], [], 0
     n = int(len(df))
-    if "treat_sum" in df.columns:
-        df = df.sort_values("treat_sum", ascending=False, na_position="last")
+    sort_leak = "support_sum" if "support_sum" in df.columns else "treat_sum"
+    if sort_leak in df.columns:
+        df = df.sort_values(sort_leak, ascending=False, na_position="last")
     df = df.head(40)
     cols = [c for c in LEAK_COLS if c in df.columns]
     recs = [{c: _cell(row[c]) for c in cols} for row in df.to_dict(orient="records")]
@@ -391,7 +395,12 @@ def render_report(
         f"- aligner family: `{preflight.get('aligner_family', '')}`",
         f"- library layout: `{preflight.get('library_layout', '')}`",
         f"- strandedness: `{preflight.get('strandedness', '')}`",
-        f"- control / treat: {preflight.get('n_control', 0)} / {preflight.get('n_treat', 0)}",
+        f"- control / treat: {preflight.get('n_control', 0)} / {preflight.get('n_treat', 0)}"
+        + (
+            " (contrast filter on)"
+            if int(preflight.get("n_control") or 0) >= 1 and int(preflight.get("n_treat") or 0) >= 1
+            else " (discovery only; contrast filter off)"
+        ),
         f"- {_threads_line(preflight)}",
         f"- DE: {'DESeq2-style (pydeseq2); keeps wald (padj+LFC) and low_count (independent-filtering NA); evaluated non-hits are dropped' if cfg.de.enabled else 'not run'}",
         "- coding: " + ("hexamer LLR + Fickett" if cfg.coding.enabled else "not run"),
@@ -438,8 +447,8 @@ def render_report(
             lines.append(f"| {row['label']} | {row['n']} |")
         lines += [
             "",
-            "Annotation plus residual splice loci form the quantify universe. Residual loci cluster treat-recurrent "
-            "BAM splices missing from the annotation (control-silent and both-group). Class `u` is a negative "
+            "Annotation plus residual splice loci form the quantify universe. Residual loci cluster cohort-recurrent "
+            "BAM splices missing from the annotation. Class `u` is a negative "
             "definition. Counts and junctions are recomputed from the BAM.",
             "",
         ]
@@ -495,11 +504,12 @@ def render_report(
     if ctx.get("leaks"):
         cols = ctx["leak_cols"]
         shown = len(ctx["leaks"])
-        extra = f" Showing {shown} with highest treat support." if shown < ctx["n_leaks"] else ""
+        extra = f" Showing {shown} with highest support." if shown < ctx["n_leaks"] else ""
         lines.append(
-            f"**{ctx['n_leaks']}** treat-recurrent splice junctions "
+            f"**{ctx['n_leaks']}** cohort-recurrent splice junctions "
             "missing from the annotation (`unassembled`). `cohort=silent` is "
-            "absent from control; `cohort=shared` is also in control. Known-gene "
+            "absent from control; `cohort=shared` is also in control; "
+            "`cohort=cohort` is used when the sheet has no controls. Known-gene "
             "introns are omitted. This is a recall check, not a gene list."
             f"{extra} See `candidates/leak.tsv`."
         )
@@ -511,7 +521,7 @@ def render_report(
         lines.append("")
     else:
         lines += [
-            "No treat-recurrent residual splices. See `candidates/leak.tsv`.",
+            "No cohort-recurrent residual splices. See `candidates/leak.tsv`.",
             "",
         ]
     lines += [

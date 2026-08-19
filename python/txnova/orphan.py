@@ -1,8 +1,8 @@
 """Evidence for loci with no gene name: conservation + Pfam.
 
-Only `named_overlap=none`. UCSC phyloP / phastCons on exons (PhyloCSF is
-not on the mm39 public track list). HMMER hmmscan against Pfam for the
-longest ORF, if any. Network failures are recorded; they do not fail the run.
+Only `named_overlap=none`. UCSC phyloP / phastCons on exons (mm39 or hg38).
+HMMER hmmscan against Pfam for the longest ORF, if any. Network failures
+are recorded; they do not fail the run.
 """
 
 from __future__ import annotations
@@ -35,6 +35,7 @@ _PFAM_VER = re.compile(r"^(PF\d+)\.\d+$", re.I)
 
 TRACKS = {
     "mm39": {"phylop": "phyloP35way", "phastcons": "phastCons35way"},
+    "hg38": {"phylop": "phyloP100way", "phastcons": "phastCons100way"},
 }
 
 ORPHAN_COLUMNS = [
@@ -71,6 +72,8 @@ def ucsc_genome(assembly: str) -> str | None:
     a = (assembly or "").strip()
     if a in {"GRCm39", "mm39"}:
         return "mm39"
+    if a in {"GRCh38", "hg38"}:
+        return "hg38"
     return None
 
 

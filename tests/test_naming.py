@@ -18,6 +18,9 @@ def test_chrom_key() -> None:
     assert chrom_key("chr8") == "8"
     assert chrom_key("8") == "8"
     assert chrom_key("GL456233.2") == "GL456233.2"
+    assert chrom_key("chrM") == "MT"
+    assert chrom_key("MT") == "MT"
+    assert chrom_key("M") == "MT"
 
 
 def test_classify_prefers_same_strand_protein_coding(tmp_path: Path) -> None:
@@ -39,6 +42,23 @@ def test_classify_prefers_same_strand_protein_coding(tmp_path: Path) -> None:
     only_lnc = classify_locus("chr4", 200, 400, "-", genes)
     assert only_lnc["named_overlap"] == NAMING_ANNOTATED
     assert only_lnc["named_gene_name"] == "Other"
+
+
+def test_load_gene_bodies_from_transcript_only(tmp_path: Path) -> None:
+    gtf = tmp_path / "refseq.gtf"
+    gtf.write_text(
+        'chr1\trefGene\ttranscript\t100\t500\t.\t+\t.\tgene_id "G1"; transcript_id "T1"; '
+        'gene_name "Col"; gene_biotype "protein_coding";\n'
+        'chr1\trefGene\texon\t100\t200\t.\t+\t.\tgene_id "G1"; transcript_id "T1";\n'
+        'chr1\trefGene\texon\t400\t500\t.\t+\t.\tgene_id "G1"; transcript_id "T1";\n',
+        encoding="utf-8",
+    )
+    genes = load_gene_bodies(gtf)
+    recs = genes["1"]
+    assert len(recs) == 1
+    assert recs[0][0] == 100
+    assert recs[0][1] == 500
+    assert recs[0][3] == "Col"
 
 
 def test_annotate_table_adds_columns() -> None:

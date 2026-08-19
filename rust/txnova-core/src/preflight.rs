@@ -72,7 +72,7 @@ fn run_preflight_inner(
         if s.sample_id.is_empty() {
             return fail_report(report, "sample_id is empty".into());
         }
-        if s.group != "control" && s.group != "treat" {
+        if !s.group.is_empty() && s.group != "control" && s.group != "treat" {
             return fail_report(
                 report,
                 format!(
@@ -97,10 +97,13 @@ fn run_preflight_inner(
     let n_treat = *groups.get("treat").unwrap_or(&0);
     report.n_control = n_control;
     report.n_treat = n_treat;
-    if n_control < 1 || n_treat < 1 {
+    if input.samples.len() < 2 {
         return fail_report(
             report,
-            format!("need at least 1 control and 1 treat (got control={n_control} treat={n_treat})"),
+            format!(
+                "need at least 2 samples for residual harvest (got {})",
+                input.samples.len()
+            ),
         );
     }
     if strands.len() != 1 {
@@ -110,15 +113,6 @@ fn run_preflight_inner(
         );
     }
     report.strandedness = strands.iter().next().unwrap().clone();
-    if n_treat < input.treat_min_detected_replicates as usize {
-        return fail_report(
-            report,
-            format!(
-                "treat samples ({n_treat}) < filters.treat_min_detected_replicates ({})",
-                input.treat_min_detected_replicates
-            ),
-        );
-    }
     if input.de_enabled && (n_control < 2 || n_treat < 2) {
         return fail_report(
             report,

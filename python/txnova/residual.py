@@ -1,4 +1,4 @@
-"""Residual splice loci: cluster leak junctions into exon models.
+"""Residual splice loci: cluster cohort-recurrent leak junctions into exon models.
 
 Borrows LeafCutter's connected-component idea (shared splice sites) and
 adds constitutive chaining (plausible exon between adjacent introns).
@@ -100,14 +100,49 @@ def _num(v: Any) -> float | None:
 
 
 def merge_gene_bodies(gtfs: list[Path] | None) -> GeneBodies:
+    if not gtfs:
+        return {}
     out: GeneBodies = defaultdict(list)
-    for raw in gtfs or []:
+    for raw in gtfs:
         p = Path(raw)
         if not p.is_file():
-            continue
-        for chrom, recs in load_gene_bodies(p).items():
+            raise TxNovaError(f"annotation GTF not found: {p}")
+        bodies = load_gene_bodies(p)
+        if not bodies:
+            raise TxNovaError(
+                f"{p} has no gene or transcript rows; residual harvest would skip every gene filter"
+            )
+        for chrom, recs in bodies.items():
             out[chrom].extend(recs)
     return dict(out)
+
+
+def load_contig_lengths(fasta: Path | None) -> dict[str, int]:
+    if fasta is None:
+        return {}
+    fai = Path(str(fasta) + ".fai")
+    if not fai.is_file():
+        raise TxNovaError(f"missing FASTA index {fai}")
+    out: dict[str, int] = {}
+    with fai.open(encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            p = line.split("\t")
+            if len(p) < 2:
+                continue
+            n = int(p[1])
+            out[p[0]] = n
+            out[chrom_key(p[0])] = n
+    return out
+
+
+def clip_to_contig(chrom: str, pos: int, lengths: dict[str, int] | None) -> int:
+    pos = max(1, int(pos))
+    if not lengths:
+        return pos
+    cap = lengths.get(str(chrom)) or lengths.get(chrom_key(chrom))
+    if cap is None:
+        return pos
+    return min(pos, int(cap))
 
 
 def overlaps_gene_body(
@@ -177,15 +212,6 @@ def close_to_small_rna(
     return False
 
 
-def _has_stub_terminal(exon_structure: str) -> bool:
-    exons = parse_exons(exon_structure)
-    if len(exons) < 2:
-        return True
-    left = exons[0][1] - exons[0][0] + 1
-    right = exons[-1][1] - exons[-1][0] + 1
-    return left <= MIN_TERMINAL_NT or right <= MIN_TERMINAL_NT
-
-
 def select_junctions(leak: pd.DataFrame, genes: GeneBodies | None = None) -> pd.DataFrame:
     """Unassembled, not overlapping a gene body on either strand.
 
@@ -225,6 +251,7 @@ def same_locus(
     *,
     min_exon: int = MIN_EXON_NT,
     max_exon: int = MAX_EXON_NT,
+    genes: GeneBodies | None = None,
 ) -> bool:
     if a["chrom"] != b["chrom"] or a["strand"] != b["strand"]:
         return False
@@ -233,10 +260,19 @@ def same_locus(
     if a["start"] <= b["end"] and b["start"] <= a["end"]:
         return True
     if a["end"] < b["start"]:
-        gap = b["start"] - a["end"] - 1
+        gap_s, gap_e = int(a["end"]) + 1, int(b["start"]) - 1
     else:
-        gap = a["start"] - b["end"] - 1
-    return min_exon <= gap <= max_exon
+        gap_s, gap_e = int(b["end"]) + 1, int(a["start"]) - 1
+    gap = gap_e - gap_s + 1
+    if not (min_exon <= gap <= max_exon):
+        return False
+    # Do not chain two intron groups across a remaining gene. That span
+    # would then be dropped as "walks over a gene", killing both sides
+    # (mask-1000: Dpf2 + Cdc42ep2 across Gm42067).
+    if genes is not None and gap_s <= gap_e:
+        if overlaps_gene_body(str(a["chrom"]), gap_s, gap_e, genes):
+            return False
+    return True
 
 
 class _UF:
@@ -260,6 +296,7 @@ def cluster_junctions(
     *,
     min_exon: int = MIN_EXON_NT,
     max_exon: int = MAX_EXON_NT,
+    genes: GeneBodies | None = None,
 ) -> list[list[dict]]:
     if not rows:
         return []
@@ -284,7 +321,13 @@ def cluster_junctions(
             for ib in ordered[a_pos + 1 :]:
                 if int(rows[ib]["start"]) > limit:
                     break
-                if same_locus(rows[ia], rows[ib], min_exon=min_exon, max_exon=max_exon):
+                if same_locus(
+                    rows[ia],
+                    rows[ib],
+                    min_exon=min_exon,
+                    max_exon=max_exon,
+                    genes=genes,
+                ):
                     uf.union(ia, ib)
     groups: dict[int, list[dict]] = defaultdict(list)
     for i, r in enumerate(rows):
@@ -296,7 +339,11 @@ def representative_introns(members: list[dict]) -> list[dict]:
     """Non-overlapping chain; prefer higher treat_sum, then shorter intron."""
     ordered = sorted(
         members,
-        key=lambda r: (-float(r.get("treat_sum") or 0), int(r["start"]), int(r["end"])),
+        key=lambda r: (
+            -float(r.get("support_sum", r.get("treat_sum") or 0)),
+            int(r["start"]),
+            int(r["end"]),
+        ),
     )
     chain: list[dict] = []
     for r in ordered:
@@ -309,7 +356,10 @@ def representative_introns(members: list[dict]) -> list[dict]:
 
 
 def exon_structure(
-    chain: list[dict], *, flank: int = TERMINAL_FLANK_NT
+    chain: list[dict],
+    *,
+    flank: int = TERMINAL_FLANK_NT,
+    contig_end: int | None = None,
 ) -> tuple[str, int, int, int]:
     """Return exon_structure, n_exons, locus_start, locus_end (1-based inclusive)."""
     if not chain:
@@ -317,13 +367,16 @@ def exon_structure(
     first = int(chain[0]["start"])
     last = int(chain[-1]["end"])
     start = max(1, first - flank)
+    right = last + flank
+    if contig_end is not None:
+        right = min(right, contig_end)
     exons: list[tuple[int, int]] = [(start, first - 1)]
     for a, b in zip(chain, chain[1:]):
         exons.append((int(a["end"]) + 1, int(b["start"]) - 1))
-    exons.append((last + 1, last + flank))
+    exons.append((last + 1, right))
     exons = [(s, e) for s, e in exons if e >= s]
     struct = ",".join(f"{s}-{e}" for s, e in exons)
-    return struct, len(exons), start, last + flank
+    return struct, len(exons), start, right
 
 
 def _rebuild_exons(intron_structure: str, left: int, right: int) -> tuple[str, int, int, int, int]:
@@ -375,6 +428,7 @@ def apply_terminal_extents(
     genes: GeneBodies | None = None,
     *,
     min_terminal: int = MIN_TERMINAL_NT,
+    contig_len: dict[str, int] | None = None,
 ) -> tuple[pd.DataFrame, int]:
     """Replace stub terminals with coverage walks, clipped off gene bodies."""
     if df.empty or extents is None or extents.empty:
@@ -390,13 +444,17 @@ def apply_terminal_extents(
             continue
         intron_s, intron_e = introns[0][0], introns[-1][1]
         stub_left = max(1, intron_s - min_terminal)
-        stub_right = intron_e + min_terminal
+        stub_right = clip_to_contig(str(rec["chrom"]), intron_e + min_terminal, contig_len)
         if rid in by_id.index:
             hit = by_id.loc[rid]
             raw_l = pd.to_numeric(hit["left_start"], errors="coerce")
             raw_r = pd.to_numeric(hit["right_end"], errors="coerce")
             left = stub_left if pd.isna(raw_l) else int(raw_l)
-            right = stub_right if pd.isna(raw_r) else int(raw_r)
+            right = (
+                stub_right
+                if pd.isna(raw_r)
+                else clip_to_contig(str(rec["chrom"]), int(raw_r), contig_len)
+            )
         else:
             left, right = stub_left, stub_right
         left = min(left, stub_left)
@@ -412,7 +470,9 @@ def apply_terminal_extents(
         struct, n_exons, loc_s, loc_e, length = _rebuild_exons(
             str(rec["intron_structure"]), left, right
         )
-        if n_exons < 2 or _has_stub_terminal(struct):
+        # Intron chain is the evidence. A 30 nt stub terminal is a missing
+        # walk, not a reason to drop Slc12a8-like multi-junction loci.
+        if n_exons < 2:
             n_degenerate += 1
             continue
         rec["start"] = loc_s
@@ -443,12 +503,18 @@ def _with_residual_columns(df: pd.DataFrame) -> pd.DataFrame:
     return out[RESIDUAL_COLUMNS]
 
 
-def _cluster_record(members: list[dict], residual_id: str) -> dict:
+def _cluster_record(
+    members: list[dict], residual_id: str, contig_len: dict[str, int] | None = None
+) -> dict:
     chain = representative_introns(members)
-    struct, n_exons, loc_s, loc_e = exon_structure(chain)
+    chrom = str(members[0]["chrom"])
+    cap = None
+    if contig_len:
+        cap = contig_len.get(chrom) or contig_len.get(chrom_key(chrom))
+    struct, n_exons, loc_s, loc_e = exon_structure(chain, contig_end=cap)
     nearest_name, nearest_d = _nearest_from_members(members)
-    treat_n = max(int(m.get("treat_n_detected") or 0) for m in members)
-    treat_sum = int(sum(int(m.get("treat_sum") or 0) for m in members))
+    treat_n = max(int(m.get("n_detected") or m.get("treat_n_detected") or 0) for m in members)
+    treat_sum = int(sum(int(m.get("support_sum") or m.get("treat_sum") or 0) for m in members))
     control_max = max(int(m.get("control_max") or 0) for m in members)
     control_n = max(int(m.get("control_n_detected") or 0) for m in members)
     if control_n == 0 and control_max > 0:
@@ -456,7 +522,7 @@ def _cluster_record(members: list[dict], residual_id: str) -> dict:
     cohort = "shared" if control_max > 0 else "silent"
     return {
         "residual_id": residual_id,
-        "chrom": members[0]["chrom"],
+        "chrom": chrom,
         "start": loc_s,
         "end": loc_e,
         "strand": members[0]["strand"],
@@ -516,16 +582,17 @@ def cluster_leak(
     min_exon: int = MIN_EXON_NT,
     max_exon: int = MAX_EXON_NT,
     genes: GeneBodies | None = None,
+    contig_len: dict[str, int] | None = None,
 ) -> tuple[pd.DataFrame, int]:
     src = select_junctions(leak, genes)
     if src.empty:
         return pd.DataFrame(columns=RESIDUAL_COLUMNS), 0
     rows = src.to_dict(orient="records")
-    clusters = cluster_junctions(rows, min_exon=min_exon, max_exon=max_exon)
+    clusters = cluster_junctions(rows, min_exon=min_exon, max_exon=max_exon, genes=genes)
     out_rows: list[dict] = []
     n_degenerate = 0
     for members in clusters:
-        rec = _cluster_record(members, "")
+        rec = _cluster_record(members, "", contig_len=contig_len)
         # Intron span only. Terminal flanks must not kill a nearby locus.
         if genes:
             span_s, span_e = _intron_span(members)
@@ -537,7 +604,7 @@ def cluster_leak(
                 continue
             if close_to_small_rna(chrom, span_s, span_e, genes):
                 continue
-            clipped = _clip_record_terminals(rec, genes)
+            clipped = _clip_record_terminals(rec, genes, contig_len=contig_len)
             if clipped is None:
                 n_degenerate += 1
                 continue
@@ -556,7 +623,9 @@ def cluster_leak(
     return out[RESIDUAL_COLUMNS], n_degenerate
 
 
-def _clip_record_terminals(rec: dict, genes: GeneBodies) -> dict | None:
+def _clip_record_terminals(
+    rec: dict, genes: GeneBodies, contig_len: dict[str, int] | None = None
+) -> dict | None:
     """Crop stub/coverage terminals off gene bodies. Degenerate if no room."""
     introns = parse_exons(rec.get("intron_structure"))
     exons = parse_exons(rec.get("exon_structure"))
@@ -568,6 +637,7 @@ def _clip_record_terminals(rec: dict, genes: GeneBodies) -> dict | None:
     left, right = clip_terminals_from_genes(
         str(rec["chrom"]), left, right, intron_s, intron_e, genes
     )
+    right = clip_to_contig(str(rec["chrom"]), right, contig_len)
     if left > intron_s - 1:
         left = intron_s
     if right < intron_e + 1:
@@ -652,6 +722,7 @@ def write_residuals(
     samples_json: str | None = None,
     min_mapq: int = 10,
     skip_duplicate: str = "auto",
+    fasta: Path | None = None,
 ) -> pd.DataFrame:
     if not leak_tsv.is_file() or leak_tsv.stat().st_size == 0:
         return _write_empty(dest)
@@ -659,7 +730,8 @@ def write_residuals(
     if leak.empty:
         return _write_empty(dest)
     genes = merge_gene_bodies(gene_gtfs)
-    out, n_deg = cluster_leak(leak, genes=genes or None)
+    contig_len = load_contig_lengths(fasta)
+    out, n_deg = cluster_leak(leak, genes=genes or None, contig_len=contig_len or None)
     dest.parent.mkdir(parents=True, exist_ok=True)
     if out.empty:
         _write_empty(dest)
@@ -672,6 +744,8 @@ def write_residuals(
             genes=genes or None,
             min_mapq=min_mapq,
             skip_duplicate=skip_duplicate,
+            fasta=fasta,
+            contig_len=contig_len or None,
         )
         n_deg += n_cov
     if out.empty:
@@ -706,6 +780,8 @@ def _extend_with_coverage(
     genes: GeneBodies | None,
     min_mapq: int,
     skip_duplicate: str,
+    fasta: Path | None = None,
+    contig_len: dict[str, int] | None = None,
 ) -> tuple[pd.DataFrame, int]:
     from txnova import _core
 
@@ -730,10 +806,12 @@ def _extend_with_coverage(
             "min_depth": MIN_TERMINAL_DEPTH,
             "max_gap_nt": MAX_TERMINAL_GAP_NT,
         }
+        if fasta is not None:
+            cfg["fasta"] = str(fasta)
         _core.extend_terminals(str(loci), str(extents_path), samples_json, json.dumps(cfg))
         if not extents_path.is_file() or extents_path.stat().st_size == 0:
             return out, 0
         extents = pd.read_csv(extents_path, sep="\t")
         if extents.empty:
             return out, 0
-        return apply_terminal_extents(out, extents, genes)
+        return apply_terminal_extents(out, extents, genes, contig_len=contig_len)

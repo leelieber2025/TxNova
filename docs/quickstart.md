@@ -7,8 +7,8 @@ first if you haven't installed TxNova yet.
 ## 1. What you need in hand
 
 - Coordinate-sorted, **indexed** BAMs (`.bam` + `.bam.bai`) from STAR or
-  HISAT2 — at least 1 control and 1 treat sample, all the **same** aligner
-  family and the **same** strandedness.
+  HISAT2 — at least 2 samples, all the **same** aligner family and the
+  **same** strandedness. Control and treat labels are optional.
 - A genome FASTA with a `.fai` index, and a GTF annotation whose contig names
   match the BAM's `@SQ` lines exactly (same names, same lengths).
 
@@ -34,9 +34,9 @@ exists.
 |---|---|
 | `sample_id` | Unique ID, `[A-Za-z0-9._-]+` only |
 | `bam` | Path to the coordinate-sorted, indexed BAM (absolute, or relative to the sheet's directory) |
-| `group` | `control` or `treat` — exactly those two strings, no `wt`/`ko`/`case` aliases |
+| `group` | Optional. `control` or `treat` — exactly those two strings, no `wt`/`ko`/`case` aliases. Omit the column (or leave every cell empty) for a discovery-only run. |
 | `strandedness` | `unstranded`, `fr`, or `rf` — must be the same for every sample in the sheet |
-| `replicate` | Optional integer. Auto-numbered per group (1, 2, …) if you leave it blank |
+| `replicate` | Optional integer. Auto-numbered per group (or across the cohort if there is no group) if you leave it blank |
 
 ```text
 sample_id	bam	group	strandedness	replicate
@@ -46,8 +46,9 @@ treat_1	/data/treat_1.bam	treat	rf	1
 treat_2	/data/treat_2.bam	treat	rf	2
 ```
 
-You need `≥1` control and `≥1` treat sample to run at all, and `≥2` of each
-if `de.enabled: true` (the default) so PyDESeq2 has replicates to work with.
+You need `≥2` samples to harvest residual splices. A control-versus-treat
+contrast filter (and DE) runs only when the sheet has both groups; DE
+additionally needs `≥2` of each and is skipped otherwise.
 
 ## 4. Point the config at your genome
 
@@ -56,12 +57,16 @@ Edit the `genome:` block in `config.yaml`:
 ```yaml
 genome:
   fasta: /path/to/genome.fa            # needs a .fai next to it
-  annotation: /path/to/annotation.gtf  # comprehensive, not a "lean" subset
+  annotation: /path/to/annotation.gtf  # comprehensive GENCODE, not a lean subset
   annotation_source: GENCODE
-  annotation_version: M39
-  assembly: GRCm39
+  annotation_version: M39              # or the human GENCODE version
+  assembly: GRCm39                     # GRCh38 for human
   naming_annotation: null              # optional; see Configuration reference
 ```
+
+Mouse: GENCODE comprehensive M39 / GRCm39. Human: GENCODE comprehensive on
+GRCh38. `species: auto` (default) infers from the GTF; or set `species: human`.
+Only mouse and human are supported.
 
 Use the **comprehensive** annotation your samples were aligned against (or a
 matching one), not a trimmed reference-package GTF — a thin annotation makes
@@ -78,10 +83,10 @@ default — leave it alone for a first run.
 txnova preflight -c config.yaml
 ```
 
-This checks, in order: BAMs exist and are indexed; contig names/lengths agree
-across every BAM, the FASTA, and the GTF; all samples share one aligner
-family and one library layout; `group` and `strandedness` values are valid;
-you have enough samples for the analysis you asked for. It writes
+This checks, in order: `group` and `strandedness` values are valid, and you
+have enough samples for the analysis you asked for; BAMs exist and are
+indexed, with contig names/lengths agreeing across every BAM, the FASTA, and
+the GTF; all samples share one aligner family and one library layout. It writes
 `output_dir/preflight.json` and exits non-zero with a specific message on the
 first failure it hits — fix that one thing and re-run.
 
@@ -112,30 +117,35 @@ if you want to skip the latter.
 
 ```text
 output_dir/
-├── candidates/candidates.tsv           # treat-specific finals
+├── candidates/residual.tsv             # residual catalog (always)
+├── candidates/candidates.tsv           # structure-pass; contrast screen if both groups
 ├── candidates/candidates.unnamed.tsv   # structure-pass, also in control (TPM)
 ├── candidates/candidates.shared.tsv    # structure-pass, splice in both groups
 ├── report/report.html                  # start here
 └── quantify/                           # full-universe counts / TPM / DE
 ```
 
-Open `report/report.html` first — run parameters, funnel, and all three
-tables. The three files share structural gates and answer different
-questions (induction vs unannotated structure in both groups). Column
+Open `report/report.html` first, then `candidates/residual.tsv`. Without
+control and treat, `candidates.tsv` **is** the structure-pass catalog.
+With both groups, it is the treat-detected / control-silent screen; unnamed
+and shared hold structure-pass loci that are also in control. Column
 reference: [Output reference](outputs.md#the-three-tables).
+Main-task walkthrough: [Residual catalog](tutorials/t_residual_catalog.ipynb).
 
 ### If `candidates.tsv` is empty
 
-An empty **final** table is common. Check the other two tables before
-loosening gates: unnamed is structure-pass with control TPM still on;
-shared is structure-pass with a splice in both groups. Neither is a
-failed final row.
+Without a contrast, an empty `candidates.tsv` means every residual failed
+a structure gate (splice, distance, valley, bridge, RepeatMasker). Look at
+`candidates/residual.tsv` first.
+
+With a contrast, an empty **screen** is common. Check unnamed (control TPM
+still on) and shared (splice in both groups) before loosening gates.
 
 If those are empty too:
 
 1. Check `report/report.md`'s **Funnel** for which stage cut the count
    (structure, control/treat TPM, or DE).
-2. `candidates/candidates.gates.tsv` is the pre-DE treat-specific view.
+2. `candidates/candidates.gates.tsv` is the pre-DE view of the screen.
    Rows there but not in `candidates.tsv` means DE filtered them.
 3. See the [FAQ](faq.md#candidatestsv-is-empty).
 

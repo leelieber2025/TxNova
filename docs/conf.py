@@ -10,7 +10,7 @@ author = "Zhao Li (李钊)"
 copyright = f"{datetime.now():%Y}, {author}"
 repository_url = "https://github.com/leelieber2025/TxNova"
 default_branch = "main"
-release = "0.1.5"
+release = "0.1.6"
 version = release
 
 html_context = {
@@ -51,6 +51,7 @@ exclude_patterns = [
     "DATASETS.md",
     "LOCUS_HYPOTHESIS.md",
     "draft",
+    "draft_new",
     "requirements.txt",
     ".ipynb_checkpoints",
 ]

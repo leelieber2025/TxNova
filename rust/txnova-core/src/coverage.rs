@@ -228,6 +228,12 @@ pub fn scan_locus_sample(
 
     for rec in reader.records() {
         let rec = rec.map_err(|e| CoreError::fail(format!("BAM read: {e}")))?;
+        if rec.is_unmapped() || rec.is_secondary() || rec.is_supplementary() || rec.is_quality_check_failed() {
+            continue;
+        }
+        if rec.mapq() < min_mapq {
+            continue;
+        }
         if rec.is_duplicate() {
             n_dup += 1;
         }

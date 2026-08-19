@@ -4,6 +4,6 @@
 
 Copyright 2026 Zhao Li (李钊).
 
-The packaged hexamer table (`python/txnova/data/Mouse_Hexamer.tsv`) comes from
-the CPAT mouse frequencies (Wang et al. 2013). See
+The packaged hexamer tables (`Mouse_Hexamer.tsv`, `Human_Hexamer.tsv`) come
+from the CPAT frequencies (Wang et al. 2013). See
 `python/txnova/data/SOURCE.txt` for provenance.

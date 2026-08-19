@@ -23,7 +23,9 @@ def test_parse_exons_and_none() -> None:
     assert is_naming_none("NA")
     assert not is_naming_none("protein_coding")
     assert ucsc_genome("GRCm39") == "mm39"
-    assert ucsc_genome("hg38") is None
+    assert ucsc_genome("hg38") == "hg38"
+    assert ucsc_genome("GRCh38") == "hg38"
+    assert ucsc_genome("galGal6") is None
 
 
 def test_summarize_wig() -> None:

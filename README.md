@@ -8,25 +8,26 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21970482.svg)](https://doi.org/10.5281/zenodo.21970482)
 
-**TxNova** finds experimental-group-specific novel intergenic transcripts
-from bulk RNA-seq BAMs. Treat-recurrent residual splices become locus
-models. Class, counts, junctions, and bridges are recomputed from the BAM
-and the annotation.
+**TxNova** — short for **Transcript Nova** — recovers unannotated spliced
+residual loci from existing bulk RNA-seq BAMs. Cohort-recurrent residual
+splices become locus models. Class, counts, junctions, and bridges are
+recomputed from the BAM and the annotation. A control-versus-treat filter
+is optional.
 
 | Step | What it does |
 |------|----------------|
-| Harvest | Treat-recurrent CIGAR `N` junctions missing from the annotation → residual loci |
+| Harvest | Cohort-recurrent CIGAR `N` junctions missing from the annotation → residual loci |
 | Universe | Annotation + residual models, counted together |
-| Gates | Structure, detection, optional DE |
-| Tables | Treat-specific finals; both-group structure-pass (TPM and shared splice) |
+| Gates | Structure always; treat-detected / control-silent only if both groups are present |
+| Tables | Residual catalog; optional contrast finals; both-group structure-pass when a contrast exists |
 
 Docs: [Read the Docs](https://txnova.readthedocs.io/en/latest/).
 
 ## What you need
 
 - Python 3.10+
-- Coordinate-sorted, indexed BAMs from STAR or HISAT2 (control and treat)
-- Genome FASTA + `.fai`, and a comprehensive gene GTF (mouse default: GENCODE M39 / GRCm39)
+- Coordinate-sorted, indexed BAMs from STAR or HISAT2 (≥2 samples; control/treat optional)
+- Genome FASTA + `.fai`, and a comprehensive gene GTF (mouse GENCODE M39 / GRCm39, or human GENCODE / GRCh38). `species: auto` infers mouse or human; you can set `species: mouse` or `human`. Only those two are supported.
 - A YAML config and a sample sheet (`txnova init` writes starters)
 
 ## Install
@@ -50,7 +51,7 @@ txnova run -c config.yaml
 
 What to expect under `output_dir`:
 
-- `candidates/candidates.tsv` — experimental-group-specific finals
+- `candidates/candidates.tsv` — structure-pass residuals; treat-detected / control-silent when a contrast exists
 - `candidates/candidates.unnamed.tsv` — structure-pass, also in control by TPM
 - `candidates/candidates.shared.tsv` — structure-pass, splice in both groups
 - `report/report.html` — start here
@@ -67,12 +68,12 @@ Next: [Quickstart](https://txnova.readthedocs.io/en/latest/quickstart/) ·
 
 ## Status
 
-**0.1.x.** Pin `txnova==0.1.5` in Methods. [Changelog](CHANGELOG.md).
+**0.1.x.** Pin `txnova==0.1.6` in Methods. [Changelog](CHANGELOG.md).
 
 ## Citation
 
 For the software, cite the Zenodo DOI above. Pin the installed
-version in Methods (this tree is `txnova==0.1.5`). See `CITATION.cff`.
+version in Methods (this tree is `txnova==0.1.6`). See `CITATION.cff`.
 
 > Li, Z. TxNova. *Zenodo*. doi:10.5281/zenodo.21970482
 
@@ -80,8 +81,8 @@ PyPI: [https://pypi.org/project/txnova/](https://pypi.org/project/txnova/).
 
 ## License
 
-Software: [Apache License 2.0](LICENSE). The packaged mouse hexamer table
-comes from CPAT (Wang et al. 2013); see
+Software: [Apache License 2.0](LICENSE). The packaged hexamer tables
+come from CPAT (Wang et al. 2013); see
 [docs/license](https://txnova.readthedocs.io/en/latest/license/).
 
 ## Author

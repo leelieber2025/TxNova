@@ -33,6 +33,7 @@ impl AlignerFamily {
 pub struct SampleIn {
     pub sample_id: String,
     pub bam: String,
+    #[serde(default)]
     pub group: String,
     pub strandedness: String,
     pub replicate: u32,

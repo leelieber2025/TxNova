@@ -150,3 +150,37 @@ def test_cli_preflight_ok(tmp_path: Path) -> None:
     r = CliRunner().invoke(app, ["preflight", "-c", str(tmp_path / "c.yaml")])
     assert r.exit_code == 0, r.stdout + r.stderr
     assert (cfg.output_dir / "preflight.json").is_file()
+
+
+def test_ok_without_groups(tmp_path: Path) -> None:
+    sheet = tmp_path / "s.tsv"
+    sheet.write_text(
+        "sample_id\tbam\tstrandedness\n"
+        f"a\t{FIXTURES / 'treat_1.bam'}\trf\n"
+        f"b\t{FIXTURES / 'treat_2.bam'}\trf\n",
+        encoding="utf-8",
+    )
+    cfg = _cfg(tmp_path, sheet=sheet)
+    rows = load_samples(cfg.samples)
+    report = run_preflight(cfg, rows)
+    assert report["ok"] is True, report.get("errors")
+    assert report["n_control"] == 0
+    assert report["n_treat"] == 0
+    assert cfg.de.enabled is False
+
+
+def test_ok_treat_only(tmp_path: Path) -> None:
+    sheet = tmp_path / "s.tsv"
+    sheet.write_text(
+        "sample_id\tbam\tgroup\tstrandedness\n"
+        f"t1\t{FIXTURES / 'treat_1.bam'}\ttreat\trf\n"
+        f"t2\t{FIXTURES / 'treat_2.bam'}\ttreat\trf\n",
+        encoding="utf-8",
+    )
+    cfg = _cfg(tmp_path, sheet=sheet)
+    rows = load_samples(cfg.samples)
+    report = run_preflight(cfg, rows)
+    assert report["ok"] is True, report.get("errors")
+    assert report["n_treat"] == 2
+    assert report["n_control"] == 0
+    assert cfg.de.enabled is False

@@ -23,7 +23,7 @@ output_dir/
 ├── structure/
 │   └── structure.features.tsv   # splice canonicity, coverage, bridging, distances
 ├── candidates/
-│   ├── leak.tsv                 # treat-recurrent splices missing from the annotation (silent + shared)
+│   ├── leak.tsv                 # cohort-recurrent splices missing from the annotation (silent / shared / cohort)
 │   ├── residual.tsv             # locus hypotheses built from leaked splices
 │   ├── residual.gtf
 │   ├── residual.stats.json      # n_loci / n_degenerate
@@ -67,9 +67,10 @@ filter.
 
 | File | Who is in it | What it means |
 |---|---|---|
-| `candidates/candidates.tsv` | Structure pass, control max TPM below the gate, treat detection, and DE if enabled | Experimental-group-specific. The induction table. |
-| `candidates/candidates.unnamed.tsv` | Structure pass, control max TPM at or above the gate | Interval also transcribed in control. Unannotated structure, not treat-specific. |
-| `candidates/candidates.shared.tsv` | Structure pass, and a harvest junction is `cohort=shared` | The splice is used in both groups. Not interval TPM, not a DE call. |
+| `candidates/residual.tsv` | Clustered harvest models | The residual catalog. Always written. |
+| `candidates/candidates.tsv` | Structure pass. With both groups: also control-silent and treat-detected (and DE if it ran) | Catalogue without a contrast; treat-detected / control-silent **screen** with a contrast. |
+| `candidates/candidates.unnamed.tsv` | Structure pass, control max TPM at or above the gate | Interval also transcribed in control. Contrast only. |
+| `candidates/candidates.shared.tsv` | Structure pass, and a harvest junction is `cohort=shared` | The splice is used in both groups. Contrast only. Not a DE call. |
 
 A locus can appear in unnamed and shared at once. It cannot appear in both
 the final table and unnamed (those two are split by the control TPM gate).
@@ -78,7 +79,7 @@ the final table and unnamed (those two are split by the control TPM gate).
 
 ## `candidates.tsv`
 
-The treat-specific table — one row per experimental-group-specific locus.
+The final table — structure-pass residual loci. When the sheet has control and treat, this is the treat-detected / control-silent subset. Without a contrast it is the residual catalog.
 
 | Column | Meaning |
 |---|---|
@@ -128,9 +129,10 @@ could supply a gene name (`named_overlap = none`).
 
 ## `candidates/leak.tsv` and `candidates/residual.tsv`
 
-**`leak.tsv`** lists treat-recurrent spliced junctions from the BAMs
+**`leak.tsv`** lists cohort-recurrent spliced junctions from the BAMs
 (CIGAR `N`) that are absent from the annotation (`status = unassembled`).
-`cohort=silent` has no control support; `cohort=shared` is also in control.
+`cohort=silent` has no control support; `cohort=shared` is also in control;
+`cohort=cohort` is used when the sheet has no control samples.
 Junctions inside known gene bodies are omitted.
 
 **`residual.tsv`** clusters those junctions into locus hypotheses (shared

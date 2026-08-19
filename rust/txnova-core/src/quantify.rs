@@ -78,7 +78,7 @@ fn nh(rec: &Record) -> Option<i32> {
 
 fn compatible_hits(
     rec: &Record,
-    idx: &HashMap<i32, IvIndex<ExonHit>>,
+    idx: &HashMap<i32, &IvIndex<ExonHit>>,
     tid: i32,
     strandedness: &str,
 ) -> HashSet<(String, String)> {
@@ -131,18 +131,11 @@ fn skip_dup(mode: &str, seen: bool) -> bool {
     }
 }
 
-fn build_exon_index(
-    header: &rust_htslib::bam::HeaderView,
-    transcripts: &[Transcript],
-) -> HashMap<i32, IvIndex<ExonHit>> {
-    let mut by_tid: HashMap<i32, Vec<Interval<ExonHit>>> = HashMap::new();
+fn build_exon_index_by_chrom(transcripts: &[Transcript]) -> HashMap<String, IvIndex<ExonHit>> {
+    let mut by_chrom: HashMap<String, Vec<Interval<ExonHit>>> = HashMap::new();
     for t in transcripts {
-        let Some(tid) = header.tid(t.chrom.as_bytes()) else {
-            continue;
-        };
-        let tid = tid as i32;
         for e in &t.exons {
-            by_tid.entry(tid).or_default().push(Interval {
+            by_chrom.entry(t.chrom.clone()).or_default().push(Interval {
                 start: e.start,
                 end: e.end,
                 data: ExonHit {
@@ -153,10 +146,23 @@ fn build_exon_index(
             });
         }
     }
-    by_tid
+    by_chrom
         .into_iter()
         .map(|(k, v)| (k, IvIndex::from_intervals(v)))
         .collect()
+}
+
+fn tid_index<'a>(
+    header: &rust_htslib::bam::HeaderView,
+    by_chrom: &'a HashMap<String, IvIndex<ExonHit>>,
+) -> HashMap<i32, &'a IvIndex<ExonHit>> {
+    let mut out = HashMap::new();
+    for (chrom, iv) in by_chrom {
+        if let Some(tid) = header.tid(chrom.as_bytes()) {
+            out.insert(tid as i32, iv);
+        }
+    }
+    out
 }
 
 fn mate_still_ahead(rec: &Record, tid: i32, pos: i64) -> bool {
@@ -170,9 +176,10 @@ const MAX_PENDING: usize = 500_000;
 fn quantify_one_sample(
     sample: &SampleIn,
     cfg: &QuantCfg,
-    idx: &HashMap<i32, IvIndex<ExonHit>>,
+    by_chrom: &HashMap<String, IvIndex<ExonHit>>,
 ) -> Result<(HashMap<String, f64>, HashMap<String, f64>, u64)> {
     let mut reader = bam::open_sequential(Path::new(&sample.bam))?;
+    let idx = tid_index(reader.header(), by_chrom);
     let skip = skip_dup(&cfg.skip_duplicate, sample.dup_flag_seen);
     let mut pending: HashMap<Vec<u8>, Record> = HashMap::new();
     let mut locus_c: HashMap<String, f64> = HashMap::new();
@@ -195,8 +202,8 @@ fn quantify_one_sample(
             }
             let qn = rec.qname().to_vec();
             if let Some(mate) = pending.remove(&qn) {
-                let mut hits = compatible_hits(&rec, idx, rec.tid(), &cfg.strandedness);
-                hits.extend(compatible_hits(&mate, idx, mate.tid(), &cfg.strandedness));
+                let mut hits = compatible_hits(&rec, &idx, rec.tid(), &cfg.strandedness);
+                hits.extend(compatible_hits(&mate, &idx, mate.tid(), &cfg.strandedness));
                 count_fragment(&hits, &mut locus_c, &mut tx_c);
             } else if rec.tid() == rec.mtid() && (rec.mpos() as i64) < rec.pos() {
                 // Mate is already behind the cursor and was never stored
@@ -224,7 +231,7 @@ fn quantify_one_sample(
                 pending.insert(qn, rec);
             }
         } else {
-            let hits = compatible_hits(&rec, idx, rec.tid(), &cfg.strandedness);
+            let hits = compatible_hits(&rec, &idx, rec.tid(), &cfg.strandedness);
             count_fragment(&hits, &mut locus_c, &mut tx_c);
         }
     }
@@ -271,11 +278,9 @@ pub fn quantify_gtf(
 
     let mut n_pending_drop_total = 0u64;
     if !samples.samples.is_empty() {
-        let header_reader = bam::open_sequential(Path::new(&samples.samples[0].bam))?;
-        let idx = build_exon_index(header_reader.header(), &parsed.transcripts);
-        drop(header_reader);
+        let by_chrom = build_exon_index_by_chrom(&parsed.transcripts);
         let results = sys_mem::run_bam_jobs(cfg.threads, samples.samples.len(), |si| {
-            quantify_one_sample(&samples.samples[si], &cfg, &idx)
+            quantify_one_sample(&samples.samples[si], &cfg, &by_chrom)
         })?;
         for (si, slot) in results.into_iter().enumerate() {
             let (locus_c, tx_c, drops) = slot;

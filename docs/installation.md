@@ -4,6 +4,8 @@
 
 - **Python 3.10+**
 - A coordinate-sorted, indexed BAM (STAR or HISAT2). TxNova does not align.
+- Mouse (GRCm39 / GENCODE M39) or human (GRCh38 / GENCODE). `species: auto`
+  infers which; only those two are supported.
 
 `pip install txnova` installs a prebuilt wheel on Linux and macOS. On Windows
 use WSL2. Rust is only needed for a source build. Until the package is on

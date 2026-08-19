@@ -8,7 +8,8 @@ import pandas as pd
 from txnova.config import TxNovaConfig
 from txnova.errors import TxNovaError
 from txnova.logging import get_logger
-from txnova.samples import SampleRow
+from txnova.rmsk import load_rmsk, rmsk_frac
+from txnova.samples import SampleRow, has_contrast
 
 log = get_logger("txnova.gates")
 
@@ -244,7 +245,13 @@ def pick_representative_transcript(class_tsv: Path, out_tsv: Path) -> pd.DataFra
         return pd.DataFrame(columns=["locus_id", "transcript_id"])
 
     def worst(s: pd.Series) -> str:
-        return max(s, key=lambda c: WORST.get(str(c), 0))
+        vals = [str(c) for c in s]
+        unknown = [c for c in vals if c not in WORST]
+        if unknown:
+            raise TxNovaError(
+                f"unknown class code {unknown[0]!r}; delete stamps/classify.json and rerun"
+            )
+        return max(vals, key=lambda c: WORST[c])
 
     loc = (
         df.groupby("gene_id", sort=False)
@@ -375,6 +382,9 @@ def apply_gates(
         validate_structure_features(feat, structure_tsv)
     tpm = pd.read_csv(locus_tpm, sep="\t") if locus_tpm.is_file() else pd.DataFrame()
     counts = pd.read_csv(locus_counts, sep="\t") if locus_counts.is_file() else pd.DataFrame()
+    rmsk_idx = None
+    if cfg.genome.rmsk_bed is not None:
+        rmsk_idx = load_rmsk(Path(cfg.genome.rmsk_bed))
     if not reps.empty:
         if tpm.empty or "locus_id" not in tpm.columns:
             raise TxNovaError(f"missing or empty full-universe TPM table {locus_tpm}")
@@ -388,21 +398,29 @@ def apply_gates(
                 + "; full-universe TPM is required"
             )
 
+    contrast = has_contrast(rows)
     controls = [r.sample_id for r in rows if r.group == "control"]
     treats = [r.sample_id for r in rows if r.group == "treat"]
+    abundance_ids = treats if contrast else [r.sample_id for r in rows]
     f = cfg.filters
     out_rows: list[dict] = []
     unnamed_rows: list[dict] = []
     uns = all(r.strandedness == "unstranded" for r in rows)
+    cls_by_tid = cls.set_index("transcript_id", drop=False)
+    feat_groups = feat.groupby("locus_id", sort=False) if not feat.empty else None
 
     for rec in reps.to_dict(orient="records"):
         lid = rec["locus_id"]
         tid = rec["transcript_id"]
-        iso = cls[cls["transcript_id"] == tid]
-        if iso.empty:
+        if tid not in cls_by_tid.index:
             continue
-        t = iso.iloc[0]
-        sf = feat[feat["locus_id"] == lid] if not feat.empty else pd.DataFrame()
+        t = cls_by_tid.loc[tid]
+        if isinstance(t, pd.DataFrame):
+            t = t.iloc[0]
+        if feat_groups is not None and lid in feat_groups.groups:
+            sf = feat_groups.get_group(lid)
+        else:
+            sf = pd.DataFrame()
         head = sf.iloc[0] if not sf.empty else None
         if head is not None and is_structure_error(head.get("structure_error", "")):
             log.warning("locus %s skipped: %s", lid, head.get("structure_error", ""))
@@ -447,7 +465,7 @@ def apply_gates(
             sid: (
                 float(tpm_row.iloc[0][sid]) if not tpm_row.empty and sid in tpm_row.columns else 0.0
             )
-            for sid in treats
+            for sid in abundance_ids
         }
         detecting = [sid for sid, tv in treat_tpms_by.items() if tv >= f.treat_detect_tpm]
 
@@ -536,8 +554,13 @@ def apply_gates(
                 parts = [int(x) for x in fields]
                 if junc_sum is None:
                     junc_sum = parts
+                elif len(junc_sum) != len(parts):
+                    raise TxNovaError(
+                        f"locus {lid}: junction_support length mismatch across samples; "
+                        "delete stamps/structure.json and rerun"
+                    )
                 else:
-                    junc_sum = [a + b for a, b in zip(junc_sum, parts, strict=True)]
+                    junc_sum = [a + b for a, b in zip(junc_sum, parts)]
         has_bridge = bool(has_nearest and detecting and bridge_total >= f.bridge_min_reads)
         if f.reject_bridging_junction:
             if has_bridge:
@@ -549,7 +572,7 @@ def apply_gates(
             float(tpm_row.iloc[0][sid]) if not tpm_row.empty and sid in tpm_row.columns else 0.0
             for sid in controls
         ]
-        treat_tpms = [treat_tpms_by[sid] for sid in treats]
+        treat_tpms = [treat_tpms_by[sid] for sid in abundance_ids]
         control_max = max(ctrl_tpms) if ctrl_tpms else 0.0
         treat_med = _median(treat_tpms)
         n_det = len(detecting)
@@ -577,13 +600,21 @@ def apply_gates(
             counts=counts,
             rows=rows,
         )
-        if control_max >= f.control_max_tpm:
-            unnamed_rows.append(rec_out)
-            continue
-        if n_det < f.treat_min_detected_replicates:
-            continue
-        if treat_med < f.treat_median_tpm:
-            continue
+        if contrast:
+            if control_max >= f.control_max_tpm:
+                unnamed_rows.append(rec_out)
+                continue
+            if n_det < f.treat_min_detected_replicates:
+                continue
+            if treat_med < f.treat_median_tpm:
+                continue
+        if rmsk_idx is not None:
+            frac_rm = rmsk_frac(
+                str(t["chrom"]), rec_out["exon_structure"], int(length_nt), rmsk_idx
+            )
+            if frac_rm >= f.max_rmsk_frac:
+                continue
+            passed.append("rmsk")
         rec_out["gates_passed"] = ",".join(passed + ["detect"])
         out_rows.append(rec_out)
 
@@ -592,5 +623,12 @@ def apply_gates(
     unnamed = pd.DataFrame(unnamed_rows)
     write_candidates(cand, out_dir / filename, rows)
     write_candidates(unnamed, out_dir / UNNAMED_FILENAME, rows)
-    log.info("candidates: %s treat-specific, %s unnamed (also in control)", len(cand), len(unnamed))
+    if contrast:
+        log.info(
+            "candidates: %s treat-detected / control-silent, %s unnamed (also in control)",
+            len(cand),
+            len(unnamed),
+        )
+    else:
+        log.info("candidates: %s structure-pass residual loci (no contrast)", len(cand))
     return cand

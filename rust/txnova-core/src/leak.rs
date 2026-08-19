@@ -1,6 +1,7 @@
-//! Residual splice census: treat-recurrent CIGAR `N` junctions that are
-//! not annotated-gene introns. `cohort=silent` is control-absent;
-//! `cohort=shared` is also present in control.
+//! Residual splice census: cohort-recurrent CIGAR `N` junctions that are
+//! not annotated-gene introns. Harvest ignores treat/control labels.
+//! `cohort=silent` is control-absent; `cohort=shared` is also in control;
+//! `cohort=cohort` is used when the sheet has no control samples.
 
 use crate::bam;
 use crate::coverage::{cigar_introns, inferred_strand, pass_read};
@@ -15,13 +16,14 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 const MAX_PENDING: usize = 500_000;
-const MIN_TREAT_SUPPORT: u64 = 2;
+const MIN_SUPPORT: u64 = 2;
 const MAX_CONTROL_SUPPORT: u64 = 0;
 
 #[derive(Debug, Deserialize)]
 struct SampleIn {
     sample_id: String,
     bam: String,
+    #[serde(default)]
     group: String,
     #[serde(default)]
     dup_flag_seen: bool,
@@ -47,9 +49,9 @@ struct LeakCfg {
     #[serde(default)]
     threads: usize,
     #[serde(default = "d_reps")]
-    treat_min_samples: usize,
-    #[serde(default = "d_min_treat")]
-    min_treat_support: u64,
+    min_samples: usize,
+    #[serde(default = "d_min_support")]
+    min_support: u64,
     #[serde(default = "d_max_ctrl")]
     max_control_support: u64,
 }
@@ -69,8 +71,8 @@ fn d_auto() -> String {
 fn d_reps() -> usize {
     2
 }
-fn d_min_treat() -> u64 {
-    MIN_TREAT_SUPPORT
+fn d_min_support() -> u64 {
+    MIN_SUPPORT
 }
 fn d_max_ctrl() -> u64 {
     MAX_CONTROL_SUPPORT
@@ -356,14 +358,18 @@ pub fn leak_scan(
             .iter()
             .map(|m| *m.get(&key).unwrap_or(&0))
             .collect();
+        let support_sum: u64 = counts.iter().sum();
+        let n_detected = counts.iter().filter(|&&c| c > 0).count();
+        if n_detected < cfg.min_samples || support_sum < cfg.min_support {
+            continue;
+        }
         let control_max = ctrl_idx.iter().map(|&i| counts[i]).max().unwrap_or(0);
         let control_n = ctrl_idx.iter().filter(|&&i| counts[i] > 0).count();
         let treat_sum: u64 = treat_idx.iter().map(|&i| counts[i]).sum();
         let treat_n = treat_idx.iter().filter(|&&i| counts[i] > 0).count();
-        if treat_n < cfg.treat_min_samples || treat_sum < cfg.min_treat_support {
-            continue;
-        }
-        let cohort = if control_max <= cfg.max_control_support {
+        let cohort = if ctrl_idx.is_empty() {
+            "cohort"
+        } else if control_max <= cfg.max_control_support {
             "silent"
         } else {
             "shared"
@@ -417,6 +423,8 @@ pub fn leak_scan(
             dist,
             gstrand,
             control_max.to_string(),
+            support_sum.to_string(),
+            n_detected.to_string(),
             treat_sum.to_string(),
             treat_n.to_string(),
             control_n.to_string(),
@@ -443,6 +451,8 @@ pub fn leak_scan(
         "nearest_distance_bp".into(),
         "nearest_strand".into(),
         "control_max".into(),
+        "support_sum".into(),
+        "n_detected".into(),
         "treat_sum".into(),
         "treat_n_detected".into(),
         "control_n_detected".into(),

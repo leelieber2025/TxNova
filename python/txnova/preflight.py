@@ -7,7 +7,7 @@ from typing import Any
 from txnova.config import TxNovaConfig
 from txnova.errors import TxNovaError
 from txnova.logging import get_logger
-from txnova.samples import SampleRow, samples_to_jsonable
+from txnova.samples import SampleRow, can_run_de, samples_to_jsonable
 from txnova.staging import StagingDir
 
 log = get_logger("txnova.preflight")
@@ -36,6 +36,9 @@ def build_samples_json(cfg: TxNovaConfig, rows: list[SampleRow]) -> str:
 
 
 def run_preflight(cfg: TxNovaConfig, rows: list[SampleRow]) -> dict[str, Any]:
+    if cfg.de.enabled and not can_run_de(rows):
+        log.info("DE skipped: need ≥2 control and ≥2 treat")
+        cfg.de.enabled = False
     core = _core()
     payload = build_samples_json(cfg, rows)
     report = core.preflight_bams(payload, str(cfg.genome.fasta), str(cfg.genome.annotation))

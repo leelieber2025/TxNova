@@ -43,7 +43,7 @@ from txnova.logging import get_logger
 from txnova.preflight import require_ok, run_preflight, write_preflight_json
 from txnova.provenance import build_run_json, write_run_json
 from txnova.report import render_html, render_report, write_report
-from txnova.samples import SampleRow, load_samples, samples_to_jsonable
+from txnova.samples import SampleRow, can_run_de, load_samples, samples_to_jsonable
 from txnova.staging import remove_orphan_staging
 from txnova.stamps import (
     bam_fingerprint,
@@ -67,8 +67,15 @@ def _core():
     return core
 
 
+def _apply_contrast_policy(cfg: TxNovaConfig, rows: list[SampleRow]) -> None:
+    if cfg.de.enabled and not can_run_de(rows):
+        log.info("DE skipped: need ≥2 control and ≥2 treat")
+        cfg.de.enabled = False
+
+
 def preflight_only(cfg: TxNovaConfig) -> dict[str, Any]:
     rows = load_samples(cfg.samples)
+    _apply_contrast_policy(cfg, rows)
     cfg.output_dir.mkdir(parents=True, exist_ok=True)
     remove_orphan_staging(cfg.output_dir)
     report = run_preflight(cfg, rows)
@@ -107,6 +114,7 @@ def run_pipeline(
     assembler: Assembler | None = None,
 ) -> dict[str, Any]:
     rows = load_samples(cfg.samples)
+    _apply_contrast_policy(cfg, rows)
     cfg.output_dir.mkdir(parents=True, exist_ok=True)
     remove_orphan_staging(cfg.output_dir)
     if force:
@@ -239,10 +247,10 @@ def _run_discovery(
             "require_unique_nh": cfg.quantify.require_unique_nh,
             "skip_duplicate": cfg.quantify.skip_duplicate,
             "library_layout": cfg.quantify.library_layout,
-            "treat_min_samples": cfg.filters.treat_min_detected_replicates,
-            "min_treat_support": 2,
+            "min_samples": 2,
+            "min_support": 2,
             "max_control_support": 0,
-            "cohorts": ["silent", "shared"],
+            "cohorts": ["silent", "shared", "cohort"],
         },
     }
     if not (stamp_matches(stamps / "leak.json", leak_scan_fp) and leak_path.is_file()):
@@ -253,8 +261,8 @@ def _run_discovery(
             "skip_duplicate": cfg.quantify.skip_duplicate,
             "library_layout": cfg.quantify.library_layout,
             "threads": cfg.threads,
-            "treat_min_samples": cfg.filters.treat_min_detected_replicates,
-            "min_treat_support": 2,
+            "min_samples": 2,
+            "min_support": 2,
             "max_control_support": 0,
         }
         core.leak_scan(
@@ -281,11 +289,14 @@ def _run_discovery(
             "max_exon_nt": MAX_EXON_NT,
             "min_terminal_nt": MIN_TERMINAL_NT,
             "max_terminal_nt": MAX_TERMINAL_NT,
-            "terminal": "treat_coverage",
+            "terminal": "cohort_coverage",
             "either_strand_gene_body": True,
             "close_same_strand_nt": CLOSE_SAME_STRAND_NT,
             "min_intron_nt": MIN_INTRON_NT,
             "small_rna_nt": CLOSE_SAME_STRAND_NT,
+            "keep_stub_terminal": True,
+            "clip_contig": True,
+            "no_chain_across_gene": True,
         },
     }
     if not (
@@ -301,6 +312,7 @@ def _run_discovery(
             samples_json=payload,
             min_mapq=cfg.quantify.min_mapq,
             skip_duplicate=cfg.quantify.skip_duplicate,
+            fasta=cfg.genome.fasta,
         )
         write_stamp(stamps / "residual.json", residual_fp)
     else:

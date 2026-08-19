@@ -43,10 +43,10 @@ def top_rank_ids(path: Path, n: int = REPORT_N) -> list[str]:
 
 
 _UNPLACED = re.compile(
-    r"^(GL|JH|KB|KQ|MU|chrUn|Un_|NW_|NT_)",
+    r"^(GL|JH|KB|KQ|KI|MU|chrUn|Un_|NW_|NT_)",
     re.I,
 )
-_PRIMARY = re.compile(r"^chr([1-9]|1[0-9]|X)$", re.I)
+_PRIMARY = re.compile(r"^chr([1-9]|1[0-9]|2[0-2]|[XY])$", re.I)
 _TE = re.compile(
     r"gag|pol\b|rve|rnase[_ ]?h|mlvin|integrase|rvt|ltr|erv\b|transpos|dde_tnp|"
     r"retrovir|tlv_|capsid|\bcoat\b",

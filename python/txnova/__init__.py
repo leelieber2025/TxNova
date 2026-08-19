@@ -1,6 +1,6 @@
-"""TxNova: experimental-group-specific novel intergenic transcripts."""
+"""TxNova: unannotated spliced residual loci from bulk RNA-seq BAMs."""
 
-__version__ = "0.1.5"
+__version__ = "0.1.6"
 
 from txnova.errors import TxNovaError
 

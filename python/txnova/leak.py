@@ -79,6 +79,26 @@ def write_shared(
     return out
 
 
+def exclude_shared_from_finals(final_path: Path, shared_path: Path, rows) -> int:
+    """Treatment-specific finals cannot keep a shared-harvest locus."""
+    from txnova.gates import write_candidates
+
+    if not final_path.is_file():
+        return 0
+    cand = _read_table(final_path)
+    if cand.empty or "locus_id" not in cand.columns:
+        return 0
+    drop = _locus_set(shared_path)
+    if not drop:
+        return 0
+    keep = ~cand["locus_id"].astype(str).isin(drop)
+    n_drop = int((~keep).sum())
+    if n_drop:
+        write_candidates(cand.loc[keep].copy(), final_path, rows)
+        log.info("finals: dropped %s shared-harvest loci", n_drop)
+    return n_drop
+
+
 def annotate_leak(
     leak_tsv: Path,
     *,

@@ -9,7 +9,7 @@ need for treat-specific intergenic discovery:
 
 Taken from StringTie, implemented here / in residual.py:
 
-- CJunction: intron is the node (leak CIGAR N, treat-recurrent)
+- CJunction: intron is the node (leak CIGAR N, cohort-recurrent)
 - coverage trim of terminals (StringTie -t default; our treat-depth walk)
 - guide annotation as the known universe (StringTie -G), not as a rebuild
 

@@ -1,6 +1,7 @@
 # FAQ / Troubleshooting
 
-First run: [Quickstart](quickstart.md). Every config field:
+First run: [Quickstart](quickstart.md). Main task (residual catalog):
+[Residual catalog](tutorials/t_residual_catalog.ipynb). Every config field:
 [Configuration reference](configuration.md). Output columns:
 [Output reference](outputs.md). Preparing BAMs:
 [Data preparation](tutorials/t_prepare_bams.ipynb).
@@ -52,30 +53,41 @@ sample sets into separate runs, or re-align the outliers.
 
 ## `group must be control|treat` / `strandedness must be unstranded|fr|rf`
 
-These two columns accept exactly those literal strings — no `wt`/`ko`/`case`
-aliases for `group`, and strandedness must be spelled `unstranded`, `fr`, or
-`rf`. See [Data preparation § figure out
+`group` is optional. If the column is present, values must be exactly
+`control` or `treat` — no `wt`/`ko`/`case` aliases. Omit the column for a
+catalog-only run. Strandedness must be `unstranded`, `fr`, or `rf`. See
+[Data preparation § figure out
 strandedness](tutorials/t_prepare_bams.ipynb#5-figure-out-strandedness) if you're not
-sure which of `fr`/`rf` your library is.
+sure which of `fr`/`rf` your library is. The main task does not need both
+groups: [Residual catalog](tutorials/t_residual_catalog.ipynb).
 
-## `de.enabled requires ≥2 control and ≥2 treat`
+## `INFO txnova.orchestrator: DE skipped: need ≥2 control and ≥2 treat`
 
-PyDESeq2 needs replicates. Either add samples, or set `de.enabled: false` in
-`config.yaml` — every gate-passing locus then goes straight to the coding
-stage (or straight to `candidates.tsv` if `coding.enabled: false` too)
-without a DE filter. See [`de`](configuration.md#de).
+Not an error — this is TxNova telling you it turned DE off for this run.
+PyDESeq2 needs replicates, so `de.enabled: true` in `config.yaml` only
+takes effect when the sample sheet has ≥2 control and ≥2 treat rows;
+below that, TxNova disables DE for you and logs this line instead of
+failing. Every gate-passing locus then goes straight to the coding stage
+(or straight to `candidates.tsv` if `coding.enabled: false` too) without a
+DE filter. Add replicates if you want the DE filter to run; there's
+nothing to fix if you don't. See [`de`](configuration.md#de).
 
 ## `candidates.tsv` is empty
 
-An empty **final** table is not the same as an empty run. Look at
-`candidates.unnamed.tsv` (structure-pass, also in control by TPM) and
-`candidates.shared.tsv` (structure-pass, splice in both groups) first.
-Those two are both-group unannotated structure, not induction. See
+An empty `candidates.tsv` is not the same as an empty run. Look at
+`candidates/residual.tsv` first — that is the harvest catalog.
+
+Without control and treat, `candidates.tsv` is the structure-pass
+catalog; empty means every residual failed a structure gate.
+
+With a contrast, look next at `candidates.unnamed.tsv` (also in control
+by TPM) and `candidates.shared.tsv` (splice in both groups). Those two
+are both-group unannotated structure, not a failed screen. See
 [Output reference § the three tables](outputs.md#the-three-tables).
 
-Many 2-vs-2/3-vs-3 designs produce zero or a handful of intergenic,
-treat-specific loci (see [Public mouse smoke test](PUBLIC_MOUSE.md)). To see
-which stage cut the **final** count:
+A contrast screen on a 2-vs-2 or 3-vs-3 design is often empty (see
+[Public mouse smoke test](PUBLIC_MOUSE.md)). To see which stage cut the
+**screen** count:
 
 1. Open `report/report.md` (or `.html`) and read the **Funnel** section —
    it shows counts at every stage (merged transcripts → class `u` →
@@ -90,10 +102,11 @@ which stage cut the **final** count:
    first — most commonly `control_max_tpm`, `treat_detect_tpm`,
    `treat_median_tpm`, or the `discontinuity_*` group.
 4. `candidates/residual.tsv` and `candidates/leak.tsv` are the splice
-   harvest: treat-recurrent CIGAR `N` junctions not in the annotation
-   (`cohort=silent` or `shared`). A silent locus with strong `treat_sum`
-   but nothing in `candidates.tsv` failed a later gate — look at length,
-   splice, distance, or control TPM. Both-group splices land in
+   harvest: cohort-recurrent CIGAR `N` junctions not in the annotation
+   (`cohort=silent`, `shared`, or `cohort` when the sheet has no controls).
+   A silent locus with strong `support_sum` but nothing in `candidates.tsv`
+   failed a later gate — look at length, splice, distance, or (if you have
+   a contrast) control TPM. Both-group splices land in
    `candidates.shared.tsv` when they pass structure gates.
 
 ## Unknown field / extra keys error from `config.yaml`
@@ -113,8 +126,19 @@ genes look intergenic.
 `genome.naming_annotation` is optional. It fills `named_gene_name` /
 `named_overlap` for class-`u` loci that `annotation` left blank, and residual
 harvest also uses it for the 200 nt same-strand knife. It does not change
-class `u` or the 500 bp distance gate. If `annotation` is already comprehensive,
+class `u` or the 1000 bp distance gate. If `annotation` is already comprehensive,
 you usually do not need it.
+
+## `... has no gene or transcript rows; residual harvest would skip every gene filter`
+
+Residual harvest needs `gene`/`transcript` (or `exon`, to build gene bodies
+from) rows in `genome.annotation` and `genome.naming_annotation` to filter
+new junctions against known gene bodies. A GTF with none of those rows —
+empty file, wrong feature-type filter upstream, or a header-only stub — now
+raises this error instead of silently harvesting with zero gene filters
+(which would misclassify normal intragenic splices as intergenic). Point
+`genome.annotation` at a comprehensive GTF that actually has gene/transcript
+rows.
 
 ## Are locus IDs stable across runs?
 
@@ -181,20 +205,21 @@ empirically before re-running.
 ## What does a `coding_label = coding` call actually mean?
 
 The hexamer log-likelihood cleared `coding.hexamer_coding_min` (default
-`0.0`), using the packaged mouse table or your `hexamer_table`. Published
-CPAT cutoffs do not apply. `require_orf: true` is a separate gate: a complete
-ORF of at least `min_orf_aa`.
+`0.0`), using the packaged table for `species` or your `hexamer_table`.
+Published CPAT cutoffs do not apply. `require_orf: true` is a separate gate:
+a complete ORF of at least `min_orf_aa`.
 
-## Does TxNova support species other than mouse?
+## Mouse or human?
 
-The packaged `coding.hexamer_table` (`python/txnova/data/Mouse_Hexamer.tsv`)
-is mouse-specific. Everything upstream of coding (assembly, classification,
-quantify, structure, gates, DE) is annotation-driven and species-agnostic —
-point `genome.*` at a different species' FASTA/GTF and it works. For the
-coding stage, either accept that the hexamer score won't be well-calibrated
-for a non-mouse genome, set `coding.enabled: false`, or supply your own
-`coding.hexamer_table` (see [Configuration reference §
-coding](configuration.md#coding)).
+Only **mouse** and **human** are supported. Other species fail closed.
+
+`species: auto` (default) reads the GTF (`#!genome-build`, then `ENSG…` /
+`ENSMUSG…`), then `genome.assembly`. Hexamer table and UCSC tracks follow.
+Set `species: mouse` or `species: human` to force it; that value must match
+the GTF.
+
+Human: GRCh38 FASTA + comprehensive GENCODE GTF. Mouse: GRCm39 + GENCODE
+M39 comprehensive. Do not use a cellranger-thin GTF as the run annotation.
 
 ---
 

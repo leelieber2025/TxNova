@@ -18,7 +18,8 @@ def test_chrom_and_junction_helpers() -> None:
     assert chrom_class("chr11") == "primary"
     assert chrom_class("GL456233.2") == "unplaced"
     assert chrom_class("MU069435.1") == "unplaced"
-    assert chrom_class("chrY") == "chrY"
+    assert chrom_class("chrY") == "primary"
+    assert chrom_class("chr22") == "primary"
     assert junction_min("25,22,0,16") == 0
     assert junction_min("783,825") == 783
     assert junction_min("") is None

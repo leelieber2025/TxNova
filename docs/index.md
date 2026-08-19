@@ -9,17 +9,18 @@
 
 ## What TxNova does
 
-TxNova finds **experimental-group-specific novel intergenic transcripts**
-from bulk RNA-seq BAMs. Treat-recurrent residual splices become locus
-models. Class, counts, junctions, and bridges are recomputed from the BAM
-and the annotation.
+**TxNova** — short for **Transcript Nova** — recovers **unannotated spliced
+residual loci** from existing bulk RNA-seq BAMs. Cohort-recurrent residual
+splices become locus models. Class, counts, junctions, and bridges are
+recomputed from the BAM and the annotation. A control-versus-treat filter
+is optional.
 
 | Step | What it does |
 |------|----------------|
-| Harvest | Treat-recurrent CIGAR `N` junctions missing from the annotation → residual loci |
+| Harvest | Cohort-recurrent CIGAR `N` junctions missing from the annotation → residual loci |
 | Universe | Annotation + residual models, counted together |
-| Gates | Structure, detection, optional DE |
-| Tables | Treat-specific finals; both-group structure-pass (TPM and shared splice) |
+| Gates | Structure always; treat-detected / control-silent only if both groups are present |
+| Tables | Residual catalog; optional contrast finals; both-group tables when a contrast exists |
 
 ```text
  coordinate-sorted, indexed BAMs (STAR / HISAT2)
@@ -31,7 +32,7 @@ and the annotation.
              │
              ▼
     ┌──────────────────────┐
-    │ 2. Leak + residual     │  treat-recurrent CIGAR N (silent + shared)
+    │ 2. Leak + residual     │  cohort-recurrent CIGAR N (silent / shared / cohort)
     │                        │  clustered into RSDL loci; clip off gene bodies
     └──────────────────────┘
              │
@@ -57,9 +58,10 @@ and the annotation.
     └──────────────────────┘
 ```
 
-Per-sample GTFs are stubs. Leak and quantify scan the BAMs. The run writes
-three structure-pass tables, not one: treat-specific finals, unnamed (also
-in control by TPM), and shared (splice in both groups).
+Per-sample GTFs are stubs. Leak and quantify scan the BAMs. The primary
+output is the residual catalog. When the sheet has both control and
+treat, the run also writes a treat-detected / control-silent screen plus
+unnamed (control TPM) and shared (splice in both groups).
 
 ## Where to go
 
@@ -71,6 +73,7 @@ in control by TPM), and shared (splice in both groups).
 | What each output file and column means | {doc}`outputs` |
 | Empty tables and preflight errors | {doc}`faq` |
 | Public mouse smoke (ENCODE BMDM ± Lipid A) | {doc}`PUBLIC_MOUSE` |
+| Residual catalog (main task) | {doc}`tutorials/t_residual_catalog` |
 | Ranked loci, exon maps, fold viewer | {doc}`tutorials/index` |
 | Changelog | {doc}`changelog` |
 
@@ -79,8 +82,9 @@ in control by TPM), and shared (splice in both groups).
 1. Install: `pip install txnova`.
 2. Follow {doc}`quickstart`.
 3. If you still have FASTQ, align first ({doc}`tutorials/t_prepare_bams`).
-4. Open `report/report.html`, then the three tables in {doc}`outputs`.
-5. Worked tables and the fold viewer: {doc}`tutorials/index`.
+4. Open `report/report.html`, then `candidates/residual.tsv` and the
+   tables in {doc}`outputs`.
+5. Main-task walkthrough: {doc}`tutorials/t_residual_catalog`.
 
 ### Default call
 
@@ -96,13 +100,16 @@ mixed aligners, and bad `group` / `strandedness` values. `txnova run` runs
 preflight again. `txnova report` rebuilds Markdown/HTML from an existing run.
 
 You need coordinate-sorted, indexed BAMs from STAR or HISAT2 (not a mix),
-at least one control and one treat (≥2 each if DE is on), a FASTA with
-`.fai`, and a GTF whose seqnames match the BAM `@SQ` lines.
+at least two samples (control and treat are optional; DE needs ≥2 of each),
+a FASTA with `.fai`, and a comprehensive GTF whose seqnames match the BAM
+`@SQ` lines.
+Mouse (GENCODE M39 / GRCm39) and human (GENCODE / GRCh38) are supported.
+`species: auto` infers which one; you can set `mouse` or `human`.
 
 :::{note}
-TxNova is **0.1.x**. The documented interface is the CLI (`init`,
-`preflight`, `run`, `report`) and `config.yaml`. Pin the installed version
-in Methods (`txnova==0.1.5` for this tree). Cite
+TxNova is **0.1.x** (mouse and human). The documented interface is the CLI
+(`init`, `preflight`, `run`, `report`) and `config.yaml`. Pin the installed
+version in Methods (`txnova==0.1.6` for this tree). Cite
 [doi:10.5281/zenodo.21970482](https://doi.org/10.5281/zenodo.21970482).
 :::
 
@@ -155,7 +162,7 @@ Preflight errors and empty tables.
 :link: tutorials/index
 :link-type: doc
 
-GSE221720 rank, exon maps, 3Dmol viewer.
+Catalogue first; optional contrast; fold viewer.
 :::
 
 :::{grid-item-card} Public mouse {octicon}`beaker;1em;`

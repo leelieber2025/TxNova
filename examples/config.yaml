@@ -1,4 +1,4 @@
-species: mouse
+species: auto                  # auto | mouse | human. Only mouse and human are supported.
 output_dir: ./txnova_out
 threads: 0
 
@@ -23,7 +23,7 @@ filters:
   min_exons: 1
   require_canonical_splice: true
   max_noncanonical_junction_fraction: 0.0
-  min_nearest_same_strand_bp: 500
+  min_nearest_same_strand_bp: 1000
   require_coverage_discontinuity: true
   discontinuity_window_bp: 50
   discontinuity_valley_bp: 200
@@ -33,10 +33,11 @@ filters:
   reject_bridging_junction: true
   bridge_min_reads: 2
   transcript_min_nt: 100
-  control_max_tpm: 1.0
+  control_max_tpm: 0.5
   treat_detect_tpm: 0.1
-  treat_min_detected_replicates: 2
+  treat_min_detected_replicates: 3
   treat_median_tpm: 0.5
+  max_rmsk_frac: 0.1
 
 de:
   enabled: true
