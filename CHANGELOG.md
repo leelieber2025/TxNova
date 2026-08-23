@@ -2,6 +2,14 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.1.8] - 2026-08-22
+
+- Fixed: unstranded (`strandedness: unstranded`) loci had their canonical-splice check and their ORF/coding-score scan silently read on the plus strand only, so a true minus-strand GT-AG/GC-AG intron scored as non-canonical and some loci were translated on the wrong strand. `splice::infer_unstranded_plus` now scores each intron's donor/acceptor motif in both directions and picks the better-supported strand once per transcript; both `splice_features` (the canonical-splice gate) and `orf::splice_seq` (ORF finding / coding score) use that call instead of each defaulting to plus independently. Only unstranded samples are affected.
+
+## [0.1.7] - 2026-08-19
+
+- `residual.tsv` `nearest_gene_name` / `nearest_distance_bp` are the distance of the residual locus (the interval the 1 kb structure gate uses), not of the nearest member intron. Stranded loci use same-strand distance; unstranded loci use either-strand. The column is rewritten after terminal clip and after the coverage walk.
+
 ## [0.1.6] - 2026-08-18
 
 - Residual harvest is cohort-recurrent (any ≥2 samples), not treat-recurrent. Sample `group` is optional. Control-versus-treat TPM gates and DE run only when both groups are present; DE is skipped unless each side has ≥2 samples.

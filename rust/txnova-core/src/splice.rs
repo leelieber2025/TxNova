@@ -8,6 +8,42 @@ pub fn is_canonical(donor: &[u8; 2], acceptor: &[u8; 2]) -> bool {
     matches!((donor, acceptor), (b"GT", b"AG") | (b"GC", b"AG"))
 }
 
+/// For an unstranded transcript (GTF strand `.`), decide whether the plus
+/// or the reverse-complement reading of its introns is the real one.
+///
+/// The library carries no strand information, so `t.strand` cannot be
+/// trusted; the intron donor/acceptor motif can. Score every intron in
+/// both directions and keep whichever direction has more canonical
+/// (GT-AG/GC-AG) hits, ties and no-evidence loci defaulting to plus.
+/// Both the canonical-splice gate (below) and the spliced-sequence /
+/// ORF scan (`orf::splice_seq`) call this so a locus gets one consistent
+/// strand call rather than being silently read as plus by each in turn.
+pub fn infer_unstranded_plus(t: &Transcript, fa: &FastaIndex) -> Result<bool> {
+    let introns = crate::coverage::transcript_introns(t);
+    let mut plus_can = 0usize;
+    let mut minus_can = 0usize;
+    for &(intron_g_start, intron_g_end) in &introns {
+        if intron_g_end < intron_g_start + 3 {
+            continue;
+        }
+        let fwd = (
+            fa.dinuc_tx(&t.chrom, intron_g_start, true)?,
+            fa.dinuc_tx(&t.chrom, intron_g_end - 1, true)?,
+        );
+        if is_canonical(&fwd.0, &fwd.1) {
+            plus_can += 1;
+        }
+        let rev = (
+            fa.dinuc_tx(&t.chrom, intron_g_end - 1, false)?,
+            fa.dinuc_tx(&t.chrom, intron_g_start, false)?,
+        );
+        if is_canonical(&rev.0, &rev.1) {
+            minus_can += 1;
+        }
+    }
+    Ok(plus_can >= minus_can)
+}
+
 /// Per-intron donor/acceptor on the transcript strand + canonical fraction.
 ///
 /// Intron set is `coverage::transcript_introns` so `donors` and
@@ -34,7 +70,15 @@ pub fn splice_features(
     } else {
         None
     };
-    let plus = t.strand != '-';
+    // Unstranded loci (strand '.') must not be silently scored as plus:
+    // pick the better-supported reading once for the whole transcript.
+    let plus = if t.strand == '-' {
+        false
+    } else if t.strand == '+' {
+        true
+    } else {
+        infer_unstranded_plus(t, fa)?
+    };
     let mut donors = Vec::new();
     let mut acceptors = Vec::new();
     let mut n_can = 0usize;

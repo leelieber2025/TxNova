@@ -2,7 +2,6 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/txnova.svg)](https://pypi.org/project/txnova/)
 [![PyPI downloads](https://img.shields.io/pepy/dt/txnova.svg)](https://pepy.tech/project/txnova)
-[![Python versions](https://img.shields.io/pypi/pyversions/txnova.svg)](https://pypi.org/project/txnova/)
 [![CI](https://github.com/leelieber2025/TxNova/actions/workflows/ci.yml/badge.svg)](https://github.com/leelieber2025/TxNova/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/leelieber2025/TxNova/blob/main/LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21970482.svg)](https://doi.org/10.5281/zenodo.21970482)
@@ -67,21 +66,22 @@ unnamed (control TPM) and shared (splice in both groups).
 
 | Goal | Page |
 |------|------|
-| Install and run a first analysis | {doc}`installation` → {doc}`quickstart` |
-| Turn raw FASTQs into a TxNova-ready BAM | {doc}`tutorials/t_prepare_bams` |
+| Install | {doc}`installation` |
+| Turn FASTQ into a TxNova-ready BAM | {doc}`tutorials/t_prepare_bams` |
+| First run after you have BAMs | {doc}`quickstart` |
+| Residual catalog (main task) | {doc}`tutorials/t_residual_catalog` |
 | Every `config.yaml` field | {doc}`configuration` |
 | What each output file and column means | {doc}`outputs` |
 | Empty tables and preflight errors | {doc}`faq` |
-| Public mouse smoke (ENCODE BMDM ± Lipid A) | {doc}`PUBLIC_MOUSE` |
-| Residual catalog (main task) | {doc}`tutorials/t_residual_catalog` |
 | Ranked loci, exon maps, fold viewer | {doc}`tutorials/index` |
+| Public mouse smoke (ENCODE BMDM ± Lipid A) | {doc}`PUBLIC_MOUSE` |
 | Changelog | {doc}`changelog` |
 
 ### A sensible path
 
 1. Install: `pip install txnova`.
-2. Follow {doc}`quickstart`.
-3. If you still have FASTQ, align first ({doc}`tutorials/t_prepare_bams`).
+2. If you still have FASTQ, align first ({doc}`tutorials/t_prepare_bams`).
+3. Follow {doc}`quickstart`.
 4. Open `report/report.html`, then `candidates/residual.tsv` and the
    tables in {doc}`outputs`.
 5. Main-task walkthrough: {doc}`tutorials/t_residual_catalog`.
@@ -109,7 +109,7 @@ Mouse (GENCODE M39 / GRCm39) and human (GENCODE / GRCh38) are supported.
 :::{note}
 TxNova is **0.1.x** (mouse and human). The documented interface is the CLI
 (`init`, `preflight`, `run`, `report`) and `config.yaml`. Pin the installed
-version in Methods (`txnova==0.1.6` for this tree). Cite
+version in Methods (`txnova==0.1.8` for this tree). Cite
 [doi:10.5281/zenodo.21970482](https://doi.org/10.5281/zenodo.21970482).
 :::
 
@@ -123,18 +123,18 @@ version in Methods (`txnova==0.1.6` for this tree). Cite
 `pip install txnova`; source build if you develop.
 :::
 
-:::{grid-item-card} Quickstart {octicon}`rocket;1em;`
-:link: quickstart
-:link-type: doc
-
-First run after install.
-:::
-
-:::{grid-item-card} Data preparation {octicon}`database;1em;`
+:::{grid-item-card} Preparing input BAMs {octicon}`database;1em;`
 :link: tutorials/t_prepare_bams
 :link-type: doc
 
 STAR / HISAT2 recipes; preflight on fixtures.
+:::
+
+:::{grid-item-card} Quickstart {octicon}`rocket;1em;`
+:link: quickstart
+:link-type: doc
+
+First run after you have BAMs.
 :::
 
 :::{grid-item-card} Configuration {octicon}`gear;1em;`
@@ -162,7 +162,7 @@ Preflight errors and empty tables.
 :link: tutorials/index
 :link-type: doc
 
-Catalogue first; optional contrast; fold viewer.
+Prepare BAMs first; then the residual catalog.
 :::
 
 :::{grid-item-card} Public mouse {octicon}`beaker;1em;`

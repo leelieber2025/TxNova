@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "txnova"
-version = "0.1.6"
+version = "0.1.8"
 description = "Unannotated spliced residual loci from bulk RNA-seq BAMs"
 readme = "README.md"
 requires-python = ">=3.10"

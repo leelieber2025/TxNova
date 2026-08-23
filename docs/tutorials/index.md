@@ -4,13 +4,13 @@ HTML on Read the Docs is pre-executed (tables and figures already there).
 
 | If you want… | Open |
 |--------------|------|
-| Recover unannotated residual loci (main task) | {doc}`t_residual_catalog` |
 | FASTQ → STAR/HISAT2 BAM, strandedness, preflight | {doc}`t_prepare_bams` |
+| Recover unannotated residual loci (main task) | {doc}`t_residual_catalog` |
 | Rank gated loci, exon maps, fold viewer (GSE221720) | {doc}`t_gse221720_rank_and_fold` |
 | 3Dmol fold viewer (example ORF) | {doc}`fold_viewer` |
 
-**If you are new:** {doc}`t_prepare_bams` if you still have FASTQ, then
-{doc}`../quickstart`, then {doc}`t_residual_catalog`. Output files:
+**If you are new:** start with {doc}`t_prepare_bams` if you still have FASTQ,
+then {doc}`../quickstart`, then {doc}`t_residual_catalog`. Output files:
 {doc}`../outputs`.
 
 ## Run locally
@@ -33,6 +33,15 @@ See `docs/tutorials/data/SOURCE.txt`. Residual IDs are one run's, not genes.
 ::::{grid} 1 1 2 2
 :gutter: 3
 
+:::{grid-item-card} Preparing input BAMs
+:link: t_prepare_bams
+:link-type: doc
+
+STAR / HISAT2 recipes, strandedness, preflight on fixtures.
++++
+Commands + tiny fixtures
+:::
+
 :::{grid-item-card} Residual catalog
 :link: t_residual_catalog
 :link-type: doc
@@ -40,15 +49,6 @@ See `docs/tutorials/data/SOURCE.txt`. Residual IDs are one run's, not genes.
 Main task: harvest unannotated splices. Contrast is optional.
 +++
 Bundled residual.tsv · no BAM
-:::
-
-:::{grid-item-card} Preparing BAMs
-:link: t_prepare_bams
-:link-type: doc
-
-STAR / HISAT2 recipes, strandedness, preflight on fixtures.
-+++
-Commands + tiny fixtures
 :::
 
 :::{grid-item-card} Rank and fold — GSE221720
@@ -64,7 +64,7 @@ Bundled TSVs · no BAM
 :link: fold_viewer
 :link-type: doc
 
-Inline 3Dmol viewer TxNova writes for ORFs (pLDDT colouring).
+Inline 3Dmol viewer TxNova writes for ORFs (pLDDT coloring).
 +++
 Example model
 :::
@@ -74,8 +74,8 @@ Example model
 :hidden: true
 :maxdepth: 1
 
-t_residual_catalog
 t_prepare_bams
+t_residual_catalog
 t_gse221720_rank_and_fold
 fold_viewer
 ```

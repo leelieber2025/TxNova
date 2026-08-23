@@ -1,10 +1,10 @@
 # FAQ / Troubleshooting
 
-First run: [Quickstart](quickstart.md). Main task (residual catalog):
+First run: [Preparing input BAMs](tutorials/t_prepare_bams.ipynb) if you
+still have FASTQ, then [Quickstart](quickstart.md). Main task:
 [Residual catalog](tutorials/t_residual_catalog.ipynb). Every config field:
 [Configuration reference](configuration.md). Output columns:
-[Output reference](outputs.md). Preparing BAMs:
-[Data preparation](tutorials/t_prepare_bams.ipynb).
+[Output reference](outputs.md).
 
 ## `txnova._core is not built`
 
@@ -125,8 +125,9 @@ genes look intergenic.
 
 `genome.naming_annotation` is optional. It fills `named_gene_name` /
 `named_overlap` for class-`u` loci that `annotation` left blank, and residual
-harvest also uses it for the 200 nt same-strand knife. It does not change
-class `u` or the 1000 bp distance gate. If `annotation` is already comprehensive,
+harvest unions it with `annotation` for the 200 nt same-strand knife (intron
+span). It does not change class `u`. The 1 kb structure gate uses the run
+`annotation` and the clipped locus. If `annotation` is already comprehensive,
 you usually do not need it.
 
 ## `... has no gene or transcript rows; residual harvest would skip every gene filter`
@@ -206,6 +207,7 @@ empirically before re-running.
 
 The hexamer log-likelihood cleared `coding.hexamer_coding_min` (default
 `0.0`), using the packaged table for `species` or your `hexamer_table`.
+That threshold is the sign of the hexamer LLR, not CPAT's logistic cutoff.
 Published CPAT cutoffs do not apply. `require_orf: true` is a separate gate:
 a complete ORF of at least `min_orf_aa`.
 

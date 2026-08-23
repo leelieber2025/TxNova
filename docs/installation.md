@@ -8,8 +8,7 @@
   infers which; only those two are supported.
 
 `pip install txnova` installs a prebuilt wheel on Linux and macOS. On Windows
-use WSL2. Rust is only needed for a source build. Until the package is on
-PyPI, install from the GitHub source.
+use WSL2. Rust is only needed for a source build.
 
 ## Install
 
@@ -47,6 +46,7 @@ node, set both to `false` (see [Configuration](configuration.md#coding)).
 
 | Step | Page |
 |------|------|
+| Align FASTQ if you still have it | [Preparing input BAMs](tutorials/t_prepare_bams.ipynb) |
 | Run your first analysis | [Quickstart](quickstart.md) |
 | Every config field | [Configuration reference](configuration.md) |
 | What the pipeline writes | [Output reference](outputs.md) |

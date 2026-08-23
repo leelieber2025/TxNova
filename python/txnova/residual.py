@@ -186,6 +186,28 @@ def nearest_same_strand(
     return best_name, best_d
 
 
+def nearest_any_strand(
+    chrom: str,
+    start: int,
+    end: int,
+    genes: GeneBodies,
+) -> tuple[str, int | None]:
+    """Either-strand nearest. Used when the residual locus has no strand."""
+    best_name = ""
+    best_d: int | None = None
+    for gs, ge, _gstrand, name, *_ in genes.get(chrom_key(chrom), []):
+        if start <= ge and gs <= end:
+            return name, 0
+        if end < gs:
+            d = gs - end - 1
+        else:
+            d = start - ge - 1
+        if best_d is None or d < best_d:
+            best_d = d
+            best_name = name
+    return best_name, best_d
+
+
 def _intron_nt(start: object, end: object) -> int:
     return int(end) - int(start) + 1
 
@@ -481,6 +503,7 @@ def apply_terminal_extents(
         rec["length_nt"] = length
         rec["exon_structure"] = struct
         rec["locus_coord"] = f"{rec['chrom']}:{loc_s}-{loc_e}:{rec['strand']}"
+        _assign_locus_nearest(rec, genes)
         rows.append(rec)
     if not rows:
         return pd.DataFrame(columns=RESIDUAL_COLUMNS), n_degenerate
@@ -562,6 +585,25 @@ def _nearest_from_members(members: list[dict]) -> tuple[str, object]:
     return best_name, (best_d if best_d is not None else "")
 
 
+def _assign_locus_nearest(rec: dict, genes: GeneBodies | None) -> None:
+    """Write nearest of the residual locus (the 1 kb gate interval).
+
+    Stranded loci use same-strand distance. Unstranded loci (strand '.') use
+    either-strand distance, matching the unstranded 1 kb gate.
+    """
+    if not genes:
+        return
+    chrom = str(rec["chrom"])
+    start, end = int(rec["start"]), int(rec["end"])
+    strand = str(rec["strand"])
+    if strand in {".", "", "*", "nan", "NA"}:
+        name, d = nearest_any_strand(chrom, start, end, genes)
+    else:
+        name, d = nearest_same_strand(chrom, start, end, strand, genes)
+    rec["nearest_gene_name"] = name
+    rec["nearest_distance_bp"] = "" if d is None else d
+
+
 def _n_shared_site(members: list[dict]) -> int:
     """Count splice sites used by more than one intron (not pairwise)."""
     donors = Counter(int(m["start"]) for m in members)
@@ -609,6 +651,7 @@ def cluster_leak(
                 n_degenerate += 1
                 continue
             rec = clipped
+        _assign_locus_nearest(rec, genes)
         rec["locus_coord"] = f"{rec['chrom']}:{rec['start']}-{rec['end']}:{rec['strand']}"
         out_rows.append(rec)
     if not out_rows:

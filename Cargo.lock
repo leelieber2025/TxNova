@@ -888,7 +888,7 @@ dependencies = [
 
 [[package]]
 name = "txnova-core"
-version = "0.1.6"
+version = "0.1.8"
 dependencies = [
  "pyo3",
  "rust-htslib",

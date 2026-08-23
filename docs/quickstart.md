@@ -13,8 +13,8 @@ first if you haven't installed TxNova yet.
   match the BAM's `@SQ` lines exactly (same names, same lengths).
 
 If you only have FASTQs, align them first (`STAR` or `HISAT2`) — TxNova does
-not align. See [Data preparation](tutorials/t_prepare_bams.ipynb) for the full recipe,
-including how to figure out `strandedness`.
+not align. See [Preparing input BAMs](tutorials/t_prepare_bams.ipynb) for the
+recipe, including how to figure out `strandedness`.
 
 ## 2. Write starter files
 
@@ -34,7 +34,7 @@ exists.
 |---|---|
 | `sample_id` | Unique ID, `[A-Za-z0-9._-]+` only |
 | `bam` | Path to the coordinate-sorted, indexed BAM (absolute, or relative to the sheet's directory) |
-| `group` | Optional. `control` or `treat` — exactly those two strings, no `wt`/`ko`/`case` aliases. Omit the column (or leave every cell empty) for a discovery-only run. |
+| `group` | Optional. `control` or `treat` — exactly those two strings, no `wt`/`ko`/`case` aliases. Omit the column (or leave every cell empty) for a catalog-only run. |
 | `strandedness` | `unstranded`, `fr`, or `rf` — must be the same for every sample in the sheet |
 | `replicate` | Optional integer. Auto-numbered per group (or across the cohort if there is no group) if you leave it blank |
 
@@ -162,6 +162,7 @@ txnova report -c config.yaml
 
 | Goal | Page |
 |------|------|
+| FASTQ → BAM, strandedness, preflight | [Preparing input BAMs](tutorials/t_prepare_bams.ipynb) |
 | Every config field, its default, and what changing it does | [Configuration reference](configuration.md) |
 | Full output directory and column reference | [Output reference](outputs.md) |
 | A worked example on public ENCODE mouse data | [Public mouse smoke test](PUBLIC_MOUSE.md) |

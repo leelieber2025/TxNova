@@ -1,6 +1,6 @@
 """TxNova: unannotated spliced residual loci from bulk RNA-seq BAMs."""
 
-__version__ = "0.1.6"
+__version__ = "0.1.8"
 
 from txnova.errors import TxNovaError
 

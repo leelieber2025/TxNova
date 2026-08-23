@@ -4,7 +4,8 @@ data/gse221720/txnova_4v4_m39/.
 
 candidates.tsv / candidates.unnamed.tsv / gene_rank.tsv: 2026-08-16
 contrast snapshot (used by t_gse221720_rank_and_fold).
-residual.tsv: later residual catalog (214 loci; t_residual_catalog).
+residual.tsv: GSE221720 harvest catalog (214 loci; t_residual_catalog).
+nearest_distance_bp is the clipped-locus distance (TxNova 0.1.7).
 IDs are not shared across those two snapshots.
 
 Not a new-gene call. Residual IDs are run-local.

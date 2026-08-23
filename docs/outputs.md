@@ -68,7 +68,7 @@ filter.
 | File | Who is in it | What it means |
 |---|---|---|
 | `candidates/residual.tsv` | Clustered harvest models | The residual catalog. Always written. |
-| `candidates/candidates.tsv` | Structure pass. With both groups: also control-silent and treat-detected (and DE if it ran) | Catalogue without a contrast; treat-detected / control-silent **screen** with a contrast. |
+| `candidates/candidates.tsv` | Structure pass. With both groups: also control-silent and treat-detected (and DE if it ran) | Catalog without a contrast; treat-detected / control-silent **screen** with a contrast. |
 | `candidates/candidates.unnamed.tsv` | Structure pass, control max TPM at or above the gate | Interval also transcribed in control. Contrast only. |
 | `candidates/candidates.shared.tsv` | Structure pass, and a harvest junction is `cohort=shared` | The splice is used in both groups. Contrast only. Not a DE call. |
 
@@ -87,7 +87,7 @@ The final table — structure-pass residual loci. When the sheet has control and
 | `locus_coord`, `chrom`, `start`, `end`, `strand` | Genomic coordinates. |
 | `n_exons`, `length_nt`, `exon_structure` | Structure of the representative transcript. |
 | `class` | Always `u` in the final table (fully intergenic — no exon overlap, no gene body on either strand). |
-| `nearest_gene_id` / `nearest_gene_name` / `nearest_distance_bp` / `nearest_strand` | Nearest **same-strand** annotated gene. |
+| `nearest_gene_id` / `nearest_gene_name` / `nearest_distance_bp` / `nearest_strand` | Nearest **same-strand** annotated gene of the residual **locus** (the interval the 1 kb structure gate uses). Unstranded loci use either-strand distance. |
 | `nearest_any_gene_id` / `nearest_any_gene_name` / `nearest_any_distance_bp` / `nearest_any_strand` | Nearest annotated gene on **either** strand. |
 | `named_gene_name` / `named_gene_id` / `named_gene_type` / `named_overlap` | Filled from `genome.naming_annotation` if configured; `named_overlap = none` means neither annotation could name it (these loci feed `orphan.tsv`). |
 | `canonical_splice_fraction` | Fraction of this locus's junctions that are GT-AG or GC-AG. |
@@ -140,6 +140,14 @@ splice site, or a 30–20 kb constitutive exon between adjacent introns),
 clips terminals off gene bodies, and writes them into `assembly/universe.gtf`.
 They then take the same quantify → structure → gates → DE path as annotated
 genes. `cohort` on each locus is `shared` if any member junction was in control.
+
+Two distances are easy to mix up. The 200 nt harvest knife uses the
+**intron span** (same-strand; `annotation` union `naming_annotation`).
+`nearest_distance_bp` on `residual.tsv` is the same-strand distance of the
+**clipped locus** after the coverage walk — the interval the 1 kb structure
+gate uses. Unstranded loci (`strand` `.`) use either-strand distance. A
+value of 0 means the locus abuts a gene; it does not mean the intron
+failed the 200 nt knife.
 
 See [The three tables](#the-three-tables) for how `candidates.shared.tsv`
 and `candidates.unnamed.tsv` differ from the final table.

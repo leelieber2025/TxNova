@@ -2,7 +2,9 @@
 
 End-to-end **contrast** smoke on public 2-vs-2 polyA RNA-seq (control and
 treat both present). The main product is the residual catalog and does
-not need both groups — see [Residual catalog](tutorials/t_residual_catalog.ipynb).
+not need both groups. Align first if you still have FASTQ
+([Preparing input BAMs](tutorials/t_prepare_bams.ipynb)), then see
+[Residual catalog](tutorials/t_residual_catalog.ipynb).
 Large BAMs stay off git.
 
 ## Design

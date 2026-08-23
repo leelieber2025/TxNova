@@ -2,7 +2,6 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/txnova.svg)](https://pypi.org/project/txnova/)
 [![PyPI downloads](https://img.shields.io/pepy/dt/txnova.svg)](https://pepy.tech/project/txnova)
-[![Python versions](https://img.shields.io/pypi/pyversions/txnova.svg)](https://pypi.org/project/txnova/)
 [![Documentation Status](https://readthedocs.org/projects/txnova/badge/?version=latest)](https://txnova.readthedocs.io/en/latest/?badge=latest)
 [![CI](https://github.com/leelieber2025/TxNova/actions/workflows/ci.yml/badge.svg)](https://github.com/leelieber2025/TxNova/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
@@ -61,19 +60,19 @@ The three candidate tables share the structural gates. They answer different
 questions (induction vs unannotated structure in both groups). They are not
 a declaration of new genes.
 
-Next: [Quickstart](https://txnova.readthedocs.io/en/latest/quickstart/) ·
-[Data preparation](https://txnova.readthedocs.io/en/latest/tutorials/t_prepare_bams/) ·
+Next: [Preparing input BAMs](https://txnova.readthedocs.io/en/latest/tutorials/t_prepare_bams/) ·
+[Quickstart](https://txnova.readthedocs.io/en/latest/quickstart/) ·
 [Output reference](https://txnova.readthedocs.io/en/latest/outputs/) ·
 [FAQ](https://txnova.readthedocs.io/en/latest/faq/)
 
 ## Status
 
-**0.1.x.** Pin `txnova==0.1.6` in Methods. [Changelog](CHANGELOG.md).
+**0.1.x.** Pin `txnova==0.1.8` in Methods. [Changelog](CHANGELOG.md).
 
 ## Citation
 
 For the software, cite the Zenodo DOI above. Pin the installed
-version in Methods (this tree is `txnova==0.1.6`). See `CITATION.cff`.
+version in Methods (this tree is `txnova==0.1.8`). See `CITATION.cff`.
 
 > Li, Z. TxNova. *Zenodo*. doi:10.5281/zenodo.21970482
 

@@ -1,5 +1,5 @@
 {% set name = "txnova" %}
-{% set version = "0.1.6" %}
+{% set version = "0.1.7" %}
 
 package:
   name: {{ name }}
@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: "c8989eba1e2efe10203102bede16cb8c420658c90b5f098c6110fd14c3ca77f3"
+  sha256: "3a62cd926e360da1aa40ebb1989379f3487b827c348fdb0312215a93f57a7555"
 
 build:
   number: 0

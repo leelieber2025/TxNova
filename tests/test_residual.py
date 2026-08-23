@@ -480,6 +480,88 @@ def test_knife_runs_after_cluster_not_in_select(tmp_path: Path) -> None:
     assert out.empty
 
 
+def test_unstranded_locus_uses_either_strand_nearest(tmp_path: Path) -> None:
+    gtf = tmp_path / "m39.gtf"
+    gtf.write_text(
+        'chr1\tX\tgene\t1\t799\t.\t-\t.\tgene_id "G"; gene_name "Opp"; gene_type "protein_coding";\n',
+        encoding="utf-8",
+    )
+    leak = pd.DataFrame(
+        [_junc("chr1", 1000, 1100, ".", nearest_distance_bp=200, nearest_gene_name="Opp")]
+    )
+    out, _ = cluster_leak(leak, genes=merge_gene_bodies([gtf]))
+    assert len(out) == 1
+    assert str(out.iloc[0]["strand"]) == "."
+    assert str(out.iloc[0]["nearest_gene_name"]) == "Opp"
+    assert float(out.iloc[0]["nearest_distance_bp"]) == 170
+
+
+def test_nearest_is_locus_not_intron(tmp_path: Path) -> None:
+    """residual.tsv nearest is the locus interval, same as the 1 kb gate."""
+    gtf = tmp_path / "m39.gtf"
+    # Intron 1000–1100 is 200 bp from the gene (harvest knife keeps it).
+    # The 30 nt 5′ stub makes the locus start at 970, 170 bp from the gene.
+    gtf.write_text(
+        'chr1\tX\tgene\t1\t799\t.\t+\t.\tgene_id "G"; gene_name "Near"; gene_type "protein_coding";\n',
+        encoding="utf-8",
+    )
+    leak = pd.DataFrame(
+        [_junc("chr1", 1000, 1100, "+", nearest_distance_bp=200, nearest_gene_name="Near")]
+    )
+    out, _ = cluster_leak(leak, genes=merge_gene_bodies([gtf]))
+    assert len(out) == 1
+    assert int(out.iloc[0]["start"]) == 970
+    assert float(out.iloc[0]["nearest_distance_bp"]) == 170
+    assert str(out.iloc[0]["nearest_gene_name"]) == "Near"
+
+
+def test_terminal_walk_refreshes_locus_nearest() -> None:
+    """Coverage walk can move the locus; nearest must follow the new interval."""
+    df = pd.DataFrame(
+        [
+            {
+                "residual_id": "RSDL.1",
+                "locus_coord": "chr1:970-1130:+",
+                "chrom": "chr1",
+                "start": 970,
+                "end": 1130,
+                "strand": "+",
+                "n_junctions": 1,
+                "n_exons": 2,
+                "length_nt": 160,
+                "exon_structure": "970-999,1101-1130",
+                "intron_structure": "1000-1100",
+                "nearest_gene_name": "Old",
+                "nearest_distance_bp": 869,
+                "control_max": 0,
+                "treat_sum": 4,
+                "treat_n_detected": 2,
+                "n_shared_site": 0,
+                "status": "unassembled",
+            }
+        ]
+    )
+    extents = pd.DataFrame(
+        [
+            {
+                "residual_id": "RSDL.1",
+                "chrom": "chr1",
+                "strand": "+",
+                "intron_start": 1000,
+                "intron_end": 1100,
+                "left_start": 800,
+                "right_end": 1130,
+            }
+        ]
+    )
+    genes = {"1": [(1, 599, "+", "Near", "protein_coding", "G")]}
+    out, n_deg = apply_terminal_extents(df, extents, genes)
+    assert n_deg == 0
+    assert int(out.iloc[0]["start"]) == 800
+    assert float(out.iloc[0]["nearest_distance_bp"]) == 200
+    assert str(out.iloc[0]["nearest_gene_name"]) == "Near"
+
+
 def test_nearest_name_matches_min_distance() -> None:
     leak = pd.DataFrame(
         [

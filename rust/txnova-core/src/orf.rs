@@ -40,7 +40,15 @@ fn splice_seq(t: &Transcript, fa: &FastaIndex) -> Result<Vec<u8>> {
     for e in &exons {
         seq.extend(fa.fetch(&t.chrom, e.start, e.end)?);
     }
-    if t.strand == '-' {
+    // Unstranded loci (strand '.') carry no library strand evidence, so
+    // fall back to the same intron-motif call `splice_features` uses for
+    // the canonical-splice gate, instead of always reading forward.
+    let minus = if t.strand == '.' {
+        !crate::splice::infer_unstranded_plus(t, fa)?
+    } else {
+        t.strand == '-'
+    };
+    if minus {
         seq = seq.into_iter().rev().map(rc).collect();
     }
     Ok(seq)

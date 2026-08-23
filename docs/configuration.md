@@ -32,7 +32,7 @@ directory the config file is in, not your current working directory.
 | `annotation_source` | string | `GENCODE` | Provenance metadata, printed in the report. |
 | `annotation_version` | string | `M39` | Provenance metadata, printed in the report. |
 | `assembly` | string | `GRCm39` | UCSC conservation (`GRCm39`/`mm39` or `GRCh38`/`hg38`). If omitted and the GTF is human, set to `GRCh38`. |
-| `naming_annotation` | path or `null` | `null` | Optional **second** GTF used only to *name* class-`u` loci that `annotation` doesn't have a gene body for. It is never used for class assignment or the distance gate — only `named_gene_name` / `named_overlap`. Residual harvest also uses it for the 200 nt same-strand knife. |
+| `naming_annotation` | path or `null` | `null` | Optional **second** GTF. It names class-`u` loci that `annotation` left blank (`named_gene_name` / `named_overlap`), and residual harvest unions it with `annotation` for the 200 nt same-strand knife (intron span). It does not change class `u`. The 1 kb structure gate uses the run `annotation`. |
 | `rmsk_bed` | path or `null` | `null` | RepeatMasker BED (chrom start end name family). When set, `filters.max_rmsk_frac` is applied. |
 
 ## `quantify`
@@ -60,7 +60,7 @@ DE and coding, which are separate stages).
 | `min_exons` | int ≥ 1 | `1` | Minimum exon count. `1` allows intronless loci through; the splice-canonicity gate below only applies when a locus actually has introns. |
 | `require_canonical_splice` | bool | `true` | Reject loci whose scored introns are not **GT-AG or GC-AG** (transcript strand). Those are the U2-type pair; AT-AC (U12) is not canonical here. |
 | `max_noncanonical_junction_fraction` | float [0, 1] | `0.0` | Fraction of a locus's junctions allowed to be non-canonical before it's rejected (with `require_canonical_splice: true`). `0.0` = zero tolerance. |
-| `min_nearest_same_strand_bp` | int ≥ 0 | `1000` | Minimum distance (bp) to the nearest same-strand annotated gene. Below this, a locus is treated as too close to be confidently intergenic. The default follows the ≥1 kb operational cutoff used for lincRNA catalogues, not typical gene–gene spacing (tens of kb). |
+| `min_nearest_same_strand_bp` | int ≥ 0 | `1000` | Minimum distance (bp) to the nearest same-strand annotated gene, measured on the **clipped residual locus**. Below this, a locus is treated as too close to be confidently intergenic. The default follows the ≥1 kb operational cutoff used for lincRNA catalogs, not typical gene–gene spacing (tens of kb). The 200 nt harvest knife is a separate cut and uses the intron span. |
 | `require_coverage_discontinuity` | bool | `true` | Require a real coverage gap (valley) between the locus and its neighbor, not just annotation-based distance — guards against a locus that's actually the UTR/readthrough of an adjacent gene. |
 | `discontinuity_window_bp` | int ≥ 1 | `50` | Window size (bp) used to sample coverage on either side of a candidate discontinuity. |
 | `discontinuity_valley_bp` | int ≥ 1 | `200` | Length (bp) of the low-coverage valley required between locus and neighbor. |
