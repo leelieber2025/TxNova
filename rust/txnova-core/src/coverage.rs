@@ -64,7 +64,11 @@ pub fn aligned_blocks(rec: &Record) -> Vec<(u64, u64)> {
 }
 
 pub fn pass_read(rec: &Record, min_mapq: u8, skip_dup: bool) -> bool {
-    if rec.is_unmapped() || rec.is_secondary() || rec.is_supplementary() || rec.is_quality_check_failed() {
+    if rec.is_unmapped()
+        || rec.is_secondary()
+        || rec.is_supplementary()
+        || rec.is_quality_check_failed()
+    {
         return false;
     }
     if skip_dup && rec.is_duplicate() {
@@ -222,13 +226,18 @@ pub fn scan_locus_sample(
     let mut depth = vec![0u32; len];
     let mut n_dup = 0u64;
     let introns = transcript_introns(t);
-    let mut junc_seen: Vec<std::collections::HashSet<Vec<u8>>> =
-        (0..introns.len()).map(|_| std::collections::HashSet::new()).collect();
+    let mut junc_seen: Vec<std::collections::HashSet<Vec<u8>>> = (0..introns.len())
+        .map(|_| std::collections::HashSet::new())
+        .collect();
     let mut bridge_seen: std::collections::HashSet<Vec<u8>> = std::collections::HashSet::new();
 
     for rec in reader.records() {
         let rec = rec.map_err(|e| CoreError::fail(format!("BAM read: {e}")))?;
-        if rec.is_unmapped() || rec.is_secondary() || rec.is_supplementary() || rec.is_quality_check_failed() {
+        if rec.is_unmapped()
+            || rec.is_secondary()
+            || rec.is_supplementary()
+            || rec.is_quality_check_failed()
+        {
             continue;
         }
         if rec.mapq() < min_mapq {
@@ -283,7 +292,11 @@ pub fn scan_locus_sample(
             exon_n += 1;
         }
     }
-    let locus_mean = if exon_n == 0 { 0.0 } else { exon_sum / exon_n as f64 };
+    let locus_mean = if exon_n == 0 {
+        0.0
+    } else {
+        exon_sum / exon_n as f64
+    };
 
     let (valley_possible, valley_mean) = match gap {
         None => (None, None),

@@ -195,7 +195,10 @@ pub fn parse_gtf(gtf: &Path) -> Result<ParsedGtf> {
         }
     }
 
-    let mut transcripts: Vec<Transcript> = tx_map.into_values().filter(|t| !t.exons.is_empty()).collect();
+    let mut transcripts: Vec<Transcript> = tx_map
+        .into_values()
+        .filter(|t| !t.exons.is_empty())
+        .collect();
     for t in &mut transcripts {
         t.exons.sort_by_key(|e| e.start);
     }
@@ -270,7 +273,10 @@ fn strip_chr_prefix(name: &str) -> String {
 }
 
 /// Contract P §8. Returns Ok(n_gtf_seqnames) or a fail message.
-pub fn check_gtf_vs_bam(gtf_names: &BTreeSet<String>, bam_names: &BTreeSet<String>) -> Result<usize> {
+pub fn check_gtf_vs_bam(
+    gtf_names: &BTreeSet<String>,
+    bam_names: &BTreeSet<String>,
+) -> Result<usize> {
     if gtf_names.is_empty() {
         return Err(CoreError::fail("GTF has no usable seqnames".to_string()));
     }
@@ -365,7 +371,10 @@ mod tests {
             "txnova_inv.gtf",
             "chr1\tX\texon\t20\t10\t.\t+\t.\tgene_id \"G\"; transcript_id \"T\";\n",
         );
-        assert!(parse_gtf(&p).unwrap_err().to_string().contains("start 20 > end 10"));
+        assert!(parse_gtf(&p)
+            .unwrap_err()
+            .to_string()
+            .contains("start 20 > end 10"));
         let _ = std::fs::remove_file(&p);
     }
 
@@ -378,7 +387,11 @@ mod tests {
         );
         let parsed = parse_gtf(&p).unwrap();
         assert_eq!(parsed.genes.len(), 2);
-        let mut bodies: Vec<_> = parsed.genes.iter().map(|g| (g.chrom.as_str(), g.start, g.end)).collect();
+        let mut bodies: Vec<_> = parsed
+            .genes
+            .iter()
+            .map(|g| (g.chrom.as_str(), g.start, g.end))
+            .collect();
         bodies.sort();
         assert_eq!(bodies, vec![("chrX", 1, 10), ("chrY", 100, 200)]);
         let _ = std::fs::remove_file(&p);

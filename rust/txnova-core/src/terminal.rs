@@ -1,7 +1,8 @@
-//! Treat-coverage terminal exons for residual splice loci.
+//! Cohort-coverage terminal exons for residual splice loci.
 //!
 //! Junctions fix the intron. Terminal exons walk outward from each splice
-//! site while treat depth stays above a floor (Cufflinks / StringTie style).
+//! site while depth pooled across every supplied sample stays above a floor
+//! (Cufflinks / StringTie style). Group labels are deliberately not parsed.
 //! Gene-body clipping stays in Python.
 
 use crate::bam;
@@ -18,8 +19,6 @@ use std::path::Path;
 #[derive(Debug, Deserialize)]
 struct SampleIn {
     bam: String,
-    #[serde(default)]
-    group: String,
     strandedness: String,
     #[serde(default)]
     dup_flag_seen: bool,
@@ -131,7 +130,8 @@ fn add_depth(
         .fetch((tid, window_start.saturating_sub(1), window_end))
         .map_err(|e| CoreError::fail(format!("fetch {}: {e}", bam_path.display())))?;
     for rec in reader.records() {
-        let rec = rec.map_err(|e| CoreError::fail(format!("BAM read {}: {e}", bam_path.display())))?;
+        let rec =
+            rec.map_err(|e| CoreError::fail(format!("BAM read {}: {e}", bam_path.display())))?;
         if !pass_read(&rec, min_mapq, skip) {
             continue;
         }
@@ -163,7 +163,8 @@ struct Locus {
 }
 
 fn load_loci(path: &Path) -> Result<Vec<Locus>> {
-    let f = File::open(path).map_err(|e| CoreError::fail(format!("open {}: {e}", path.display())))?;
+    let f =
+        File::open(path).map_err(|e| CoreError::fail(format!("open {}: {e}", path.display())))?;
     let mut out = Vec::new();
     for (i, line) in BufReader::new(f).lines().enumerate() {
         let line = line?;
@@ -220,7 +221,12 @@ pub fn extend_terminals(
     for sample in &samples.samples {
         let skip = skip_dup(&cfg.skip_duplicate, sample.dup_flag_seen);
         let reader = bam::open_indexed(Path::new(&sample.bam))?;
-        readers.push((reader, skip, sample.strandedness.clone(), sample.bam.clone()));
+        readers.push((
+            reader,
+            skip,
+            sample.strandedness.clone(),
+            sample.bam.clone(),
+        ));
     }
 
     let contig_len = match &cfg.fasta {
@@ -305,7 +311,16 @@ pub fn extend_terminals(
 
 #[cfg(test)]
 mod tests {
-    use super::walk_terminal;
+    use super::{walk_terminal, SamplesJson};
+
+    #[test]
+    fn terminal_samples_ignore_group_labels_and_keep_the_full_cohort() {
+        let payload = r#"{"samples":[{"bam":"control.bam","strandedness":"rf","group":"control"},{"bam":"treat.bam","strandedness":"rf","group":"treat"}]}"#;
+        let parsed: SamplesJson = serde_json::from_str(payload).unwrap();
+        assert_eq!(parsed.samples.len(), 2);
+        assert_eq!(parsed.samples[0].bam, "control.bam");
+        assert_eq!(parsed.samples[1].bam, "treat.bam");
+    }
 
     #[test]
     fn walk_stops_after_gap() {

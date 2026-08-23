@@ -36,7 +36,7 @@ pub struct WorkPlan {
 pub fn available_memory_bytes() -> Option<u64> {
     #[cfg(target_os = "linux")]
     {
-        return parse_meminfo_available(&fs::read_to_string("/proc/meminfo").ok()?);
+        parse_meminfo_available(&fs::read_to_string("/proc/meminfo").ok()?)
     }
     #[cfg(not(target_os = "linux"))]
     {
@@ -90,7 +90,7 @@ pub fn auto_bam_from_cpu(usable: usize) -> usize {
         2 | 3 => usable,
         _ => (usable / 2).max(2),
     };
-    n.min(BAM_WORKERS_CEILING).max(1)
+    n.clamp(1, BAM_WORKERS_CEILING)
 }
 
 /// Ceiling only. `0` = CPU auto. Memory does not shrink the ceiling.
@@ -221,7 +221,10 @@ where
         }
         Ok(())
     })?;
-    Ok(out.into_iter().map(|x| x.expect("worker slot filled")).collect())
+    Ok(out
+        .into_iter()
+        .map(|x| x.expect("worker slot filled"))
+        .collect())
 }
 
 #[cfg(test)]

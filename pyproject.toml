@@ -4,11 +4,11 @@ build-backend = "maturin"
 
 [project]
 name = "txnova"
-version = "0.1.8"
+version = "0.1.9"
 description = "Unannotated spliced residual loci from bulk RNA-seq BAMs"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [
     { name = "Zhao Li (李钊)", email = "leelieber@gmail.com" },

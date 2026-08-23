@@ -1,6 +1,6 @@
 """Protein 3D models for ORFs — AlphaFold DB if named, ESMFold if not.
 
-Visualization is 3Dmol.js, coloured by the AlphaFold pLDDT bands (same
+Visualization is 3Dmol.js, colored by the AlphaFold pLDDT bands (same
 palette as omicverse.mol.view). The pipeline writes a standalone HTML
 page; notebooks and the docs site use the same inline fragment py3Dmol
 emits (load 3Dmol from jsDelivr, persist in exported HTML). No docking.
@@ -17,10 +17,12 @@ import urllib.request
 from pathlib import Path
 from typing import Iterable
 
+from txnova import __version__
 from txnova.errors import TxNovaError
 from txnova.logging import get_logger
 
 log = get_logger("txnova.fold")
+_USER_AGENT = f"txnova/{__version__}"
 
 MOUSE_TAXON = 10090
 HUMAN_TAXON = 9606
@@ -95,7 +97,7 @@ def mean_ca_b_factor(pdb_text: str) -> float | None:
 
 
 def _http_get(url: str, timeout: int = 60) -> bytes:
-    req = urllib.request.Request(url, headers={"User-Agent": "txnova/0.4"})
+    req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
     last: Exception | None = None
     for attempt in range(3):
         try:
@@ -105,6 +107,7 @@ def _http_get(url: str, timeout: int = 60) -> bytes:
             last = e
             if attempt == 2:
                 raise
+    assert last is not None
     raise last  # pragma: no cover
 
 
@@ -115,7 +118,7 @@ def _http_post(url: str, data: bytes, timeout: int = 300) -> bytes:
             url,
             data=data,
             method="POST",
-            headers={"User-Agent": "txnova/0.4", "Content-Type": "text/plain"},
+            headers={"User-Agent": _USER_AGENT, "Content-Type": "text/plain"},
         )
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -124,6 +127,7 @@ def _http_post(url: str, data: bytes, timeout: int = 300) -> bytes:
             last = e
             if attempt == 2:
                 raise
+    assert last is not None
     raise last  # pragma: no cover
 
 

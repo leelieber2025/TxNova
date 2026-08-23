@@ -75,7 +75,12 @@ mod tests {
 
     #[test]
     fn long_interval_is_not_swallowed() {
-        let ix = idx(&[(1, 1_000_000, "long"), (2, 3, "a"), (4, 5, "b"), (6, 7, "c")]);
+        let ix = idx(&[
+            (1, 1_000_000, "long"),
+            (2, 3, "a"),
+            (4, 5, "b"),
+            (6, 7, "c"),
+        ]);
         assert_eq!(hits(&ix, 6, 6), vec!["long", "c"]);
     }
 

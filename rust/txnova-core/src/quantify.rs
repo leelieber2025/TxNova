@@ -205,7 +205,7 @@ fn quantify_one_sample(
                 let mut hits = compatible_hits(&rec, &idx, rec.tid(), &cfg.strandedness);
                 hits.extend(compatible_hits(&mate, &idx, mate.tid(), &cfg.strandedness));
                 count_fragment(&hits, &mut locus_c, &mut tx_c);
-            } else if rec.tid() == rec.mtid() && (rec.mpos() as i64) < rec.pos() {
+            } else if rec.tid() == rec.mtid() && rec.mpos() < rec.pos() {
                 // Mate is already behind the cursor and was never stored
                 // (failed filters). Do not keep this end forever.
             } else {
@@ -266,7 +266,11 @@ pub fn quantify_gtf(
         gene_len.insert(g.clone(), Transcript::union_len(ts));
     }
 
-    let sample_ids: Vec<String> = samples.samples.iter().map(|s| s.sample_id.clone()).collect();
+    let sample_ids: Vec<String> = samples
+        .samples
+        .iter()
+        .map(|s| s.sample_id.clone())
+        .collect();
     let mut locus_mat: HashMap<String, Vec<f64>> = HashMap::new();
     let mut tx_mat: HashMap<String, Vec<f64>> = HashMap::new();
     for t in &parsed.transcripts {
@@ -359,7 +363,10 @@ pub fn quantify_gtf(
     let mut tx_tpm_rows = Vec::new();
     tx_rpk.sort_by(|a, b| a.0.cmp(&b.0));
     for (tid, counts, rpk) in &tx_rpk {
-        let gid = tx_meta.get(tid).map(|m| m.gene_id.clone()).unwrap_or_default();
+        let gid = tx_meta
+            .get(tid)
+            .map(|m| m.gene_id.clone())
+            .unwrap_or_default();
         let mut cr = vec![tid.clone(), gid.clone()];
         let mut tr = vec![tid.clone(), gid];
         for i in 0..n_s {
@@ -380,5 +387,9 @@ pub fn quantify_gtf(
     write_tsv(&out.join("transcript_counts.tsv"), &tx_h, &tx_count_rows)?;
     write_tsv(&out.join("transcript_tpm.tsv"), &tx_h, &tx_tpm_rows)?;
 
-    Ok((parsed.transcripts.len(), locus_mat.len(), n_pending_drop_total))
+    Ok((
+        parsed.transcripts.len(),
+        locus_mat.len(),
+        n_pending_drop_total,
+    ))
 }

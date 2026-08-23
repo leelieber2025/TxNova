@@ -32,7 +32,8 @@ fn core_version() -> &'static str {
 }
 
 fn json_dict(py: Python<'_>, value: serde_json::Value) -> PyResult<Py<PyDict>> {
-    let json = serde_json::to_string(&value).map_err(|e| PyErr::new::<TxNovaError, _>(e.to_string()))?;
+    let json =
+        serde_json::to_string(&value).map_err(|e| PyErr::new::<TxNovaError, _>(e.to_string()))?;
     let json_mod = py.import("json")?;
     json_mod.call_method1("loads", (json,))?.extract()
 }
@@ -49,7 +50,8 @@ fn preflight_bams(
     annotation_gtf: &str,
 ) -> PyResult<Py<PyDict>> {
     let report = preflight::run_preflight(samples_json, fasta, annotation_gtf);
-    let value = serde_json::to_value(&report).map_err(|e| PyErr::new::<TxNovaError, _>(e.to_string()))?;
+    let value =
+        serde_json::to_value(&report).map_err(|e| PyErr::new::<TxNovaError, _>(e.to_string()))?;
     json_dict(py, value)
 }
 
@@ -63,7 +65,10 @@ fn classify_gtfs(
 ) -> PyResult<Py<PyDict>> {
     let (n_transcripts, n_u) =
         classcode::classify_gtfs(merged_gtf, ref_gtf, out_tsv, cfg_json).map_err(map_err)?;
-    json_dict(py, serde_json::json!({ "n_transcripts": n_transcripts, "n_u": n_u }))
+    json_dict(
+        py,
+        serde_json::json!({ "n_transcripts": n_transcripts, "n_u": n_u }),
+    )
 }
 
 #[pyfunction]
@@ -154,7 +159,8 @@ fn extend_terminals(
     samples_json: &str,
     cfg_json: &str,
 ) -> PyResult<Py<PyDict>> {
-    let n = terminal::extend_terminals(loci_tsv, out_tsv, samples_json, cfg_json).map_err(map_err)?;
+    let n =
+        terminal::extend_terminals(loci_tsv, out_tsv, samples_json, cfg_json).map_err(map_err)?;
     json_dict(py, serde_json::json!({ "n_loci": n }))
 }
 

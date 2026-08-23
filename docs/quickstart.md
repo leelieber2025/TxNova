@@ -104,7 +104,7 @@ A run re-does preflight, writes the annotation-plus-residual universe,
 classifies, quantifies every locus, scans structure, applies gates, runs DE
 (if enabled), and — if `coding.enabled: true` — scores ORFs and optional
 fold/orphan steps. Unchanged stages are skipped (`output_dir/stamps/`);
-`--force` ignores stamps and redos everything.
+`--force` ignores stamps and reruns every stage.
 
 A run against real data can take anywhere from minutes to hours depending on
 BAM size and sample count — BAM scans (leak / quantify) and the

@@ -78,9 +78,9 @@ def test_hexamer_llr_known_vs_noncoding(tmp_path: Path) -> None:
     assert int(by.loc["Lcod", "longest_orf_aa"]) >= 50
     assert str(by.loc["Lcod", "orf_complete"]).lower() == "true"
     assert float(by.loc["Lcod", "coding_score"]) > 0
-    assert by.loc["Lcod", "coding_label"] == "coding"
+    assert by.loc["Lcod", "coding_label"] == "hexamer_positive"
     assert float(by.loc["Lnc", "coding_score"]) < 0
-    assert by.loc["Lnc", "coding_label"] == "noncoding"
+    assert by.loc["Lnc", "coding_label"] == "hexamer_negative"
     assert pd.notna(by.loc["Lcod", "fickett_score"])
 
 
@@ -113,7 +113,7 @@ def test_no_orf_is_noncoding(tmp_path: Path) -> None:
     df = pd.read_csv(orfs, sep="\t")
     assert int(df.iloc[0]["longest_orf_aa"]) == 0
     assert df.iloc[0]["coding_score"] == "NA" or pd.isna(df.iloc[0]["coding_score"])
-    assert df.iloc[0]["coding_label"] == "noncoding"
+    assert df.iloc[0]["coding_label"] == "no_orf"
 
 
 def test_short_orf_is_reported_not_zero(tmp_path: Path) -> None:

@@ -183,7 +183,7 @@ fn census_one_sample(sample: &SampleIn, cfg: &LeakCfg) -> Result<HashMap<JuncKey
                 for k in frag.into_keys() {
                     *counts.entry(k).or_insert(0) += 1;
                 }
-            } else if rec.tid() == rec.mtid() && (rec.mpos() as i64) < rec.pos() {
+            } else if rec.tid() == rec.mtid() && rec.mpos() < rec.pos() {
             } else {
                 if rec.tid() != last_tid {
                     pending.retain(|_, stored| stored.mtid() >= rec.tid());
@@ -212,9 +212,7 @@ fn census_one_sample(sample: &SampleIn, cfg: &LeakCfg) -> Result<HashMap<JuncKey
     Ok(counts)
 }
 
-fn merged_introns(
-    transcripts: &[Transcript],
-) -> HashMap<(String, u64, u64, char), Vec<MergedHit>> {
+fn merged_introns(transcripts: &[Transcript]) -> HashMap<(String, u64, u64, char), Vec<MergedHit>> {
     let mut out: HashMap<(String, u64, u64, char), Vec<MergedHit>> = HashMap::new();
     for t in transcripts {
         // merged.gtf is the annotation. Every intron here is known.
@@ -511,8 +509,7 @@ mod tests {
             gb("chr1", '+', 100, 500, "Col"),
             gb("chr1", '-', 10_000, 11_000, "Far"),
         ];
-        let (ov, _id, name, dist, gstrand) =
-            nearest_gene("chr1", 200, 300, '-', &genes, false);
+        let (ov, _id, name, dist, gstrand) = nearest_gene("chr1", 200, 300, '-', &genes, false);
         assert!(ov, "opposite-strand gene body is an overlap");
         assert_eq!(name, "Far");
         assert_eq!(gstrand, "-");

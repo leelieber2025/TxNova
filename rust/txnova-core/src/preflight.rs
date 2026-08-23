@@ -24,7 +24,10 @@ pub fn run_preflight(samples_json: &str, fasta: &str, annotation_gtf: &str) -> P
     }
 }
 
-fn fail_report(report: PreflightReport, err: String) -> std::result::Result<PreflightReport, (PreflightReport, String)> {
+fn fail_report(
+    report: PreflightReport,
+    err: String,
+) -> std::result::Result<PreflightReport, (PreflightReport, String)> {
     Err((report, err))
 }
 
@@ -144,7 +147,11 @@ fn run_preflight_inner(
         if !bam_path.exists() {
             return fail_report(
                 report,
-                format!("sample {}: BAM not found: {}", sample.sample_id, bam_path.display()),
+                format!(
+                    "sample {}: BAM not found: {}",
+                    sample.sample_id,
+                    bam_path.display()
+                ),
             );
         }
         if let Err(e) = bam::validate_bam_integrity(bam_path) {
@@ -279,14 +286,13 @@ fn run_preflight_inner(
     if families.len() != 1 {
         return fail_report(
             report,
-            format!("samples mix aligner families {families:?}; all BAMs must be STAR or all HISAT2"),
+            format!(
+                "samples mix aligner families {families:?}; all BAMs must be STAR or all HISAT2"
+            ),
         );
     }
     if layouts.len() != 1 {
-        return fail_report(
-            report,
-            format!("samples mix library layouts {layouts:?}"),
-        );
+        return fail_report(report, format!("samples mix library layouts {layouts:?}"));
     }
     report.aligner_family = families.iter().next().unwrap().clone();
     report.library_layout = layouts.iter().next().unwrap().clone();

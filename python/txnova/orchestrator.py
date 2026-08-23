@@ -835,7 +835,7 @@ def _join_coding(
     if missing:
         raise TxNovaError(f"{orfs_path} missing columns: {missing}")
     out = cand.merge(orfs[cols], on="locus_id", how="left")
-    out["coding_label"] = out["coding_label"].fillna("noncoding")
+    out["coding_label"] = out["coding_label"].fillna("no_orf")
     for col in ("coding_score", "fickett_score"):
         out[col] = out[col].apply(lambda v: "NA" if pd.isna(v) else v)
     if filter_orf and cfg.coding.require_orf:

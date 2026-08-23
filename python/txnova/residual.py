@@ -57,10 +57,10 @@ RESIDUAL_COLUMNS = [
 # Internal exon between two residual introns (not first/last exon).
 MIN_EXON_NT = 30
 MAX_EXON_NT = 20_000
-# Fallback stub if there is no treat BAM / no coverage at the splice.
+# Fallback stub if the pooled cohort has no coverage at the splice.
 MIN_TERMINAL_NT = 30
 TERMINAL_FLANK_NT = MIN_TERMINAL_NT
-# Treat-coverage walk from each splice site (Cufflinks / StringTie style).
+# Cohort-coverage walk from each splice site (Cufflinks / StringTie style).
 MAX_TERMINAL_NT = 2_000
 MIN_TERMINAL_DEPTH = 1
 MAX_TERMINAL_GAP_NT = 20

@@ -73,8 +73,12 @@ fn d_val() -> u64 {
 }
 
 fn load_reps(path: &Path) -> Result<Vec<(String, String)>> {
-    let f = File::open(path)
-        .map_err(|e| CoreError::fail(format!("cannot open representatives {}: {e}", path.display())))?;
+    let f = File::open(path).map_err(|e| {
+        CoreError::fail(format!(
+            "cannot open representatives {}: {e}",
+            path.display()
+        ))
+    })?;
     let mut out = Vec::new();
     for (i, line) in BufReader::new(f).lines().enumerate() {
         let line = line?;
@@ -158,7 +162,9 @@ pub fn structure_scan(
 
     let fmt_near = |n: &Option<(String, String, u64, char, u64, u64)>| -> [String; 4] {
         match n {
-            Some((id, name, d, s, _, _)) => [id.clone(), name.clone(), d.to_string(), s.to_string()],
+            Some((id, name, d, s, _, _)) => {
+                [id.clone(), name.clone(), d.to_string(), s.to_string()]
+            }
             None => [String::new(), String::new(), String::new(), String::new()],
         }
     };
@@ -174,7 +180,11 @@ pub fn structure_scan(
         let (near_same, near_any) = nearest_genes(&t, chrom_genes, uns_t);
         let (donors, accs, frac, n_introns, structure_error) = splice_features(&t, &fa)?;
         let struct_err = structure_error.unwrap_or_default();
-        let nearest_for_gap = if uns_t { near_any.clone() } else { near_same.clone() };
+        let nearest_for_gap = if uns_t {
+            near_any.clone()
+        } else {
+            near_same.clone()
+        };
         // has_nearest follows the same gene used for gap (stranded = same-strand only).
         let has_nearest = nearest_for_gap.is_some();
         let gap = nearest_for_gap
@@ -314,7 +324,9 @@ fn feature_row(p: &LocusPrep, sample_id: &str, feat: Option<ValleyFeat>) -> Vec<
     let (mean, vmean, vposs, gmean, ndup, junc, bridge) = match feat {
         Some(f) => (
             format!("{:.6}", f.locus_mean_depth),
-            f.valley_mean.map(|v| format!("{:.6}", v)).unwrap_or_default(),
+            f.valley_mean
+                .map(|v| format!("{:.6}", v))
+                .unwrap_or_default(),
             f.valley_possible
                 .map(|b| if b { "true" } else { "false" }.to_string())
                 .unwrap_or_default(),

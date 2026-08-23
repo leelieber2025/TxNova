@@ -109,7 +109,8 @@ fn longest_orf(seq: &[u8], min_aa: usize) -> Option<OrfHit> {
                     if STOPS.contains(&&seq[j..j + 3]) {
                         found_stop = true;
                         let orf = seq[i..j].to_vec();
-                        if orf.len() / 3 >= min_aa && best.as_ref().map(|b| orf.len() > b.len()).unwrap_or(true)
+                        if orf.len() / 3 >= min_aa
+                            && best.as_ref().map(|b| orf.len() > b.len()).unwrap_or(true)
                         {
                             best = Some(orf);
                             complete = true;
@@ -120,7 +121,8 @@ fn longest_orf(seq: &[u8], min_aa: usize) -> Option<OrfHit> {
                 }
                 if !found_stop {
                     let orf = seq[i..seq.len() - (seq.len() - i) % 3].to_vec();
-                    if orf.len() / 3 >= min_aa && best.as_ref().map(|b| orf.len() > b.len()).unwrap_or(true)
+                    if orf.len() / 3 >= min_aa
+                        && best.as_ref().map(|b| orf.len() > b.len()).unwrap_or(true)
                     {
                         best = Some(orf);
                         complete = false;
@@ -156,8 +158,8 @@ pub fn scan_orfs(
     for t in &parsed.transcripts {
         by_tid.insert(t.transcript_id.clone(), t);
     }
-    let f = File::open(representatives_tsv)
-        .map_err(|e| CoreError::fail(format!("open reps: {e}")))?;
+    let f =
+        File::open(representatives_tsv).map_err(|e| CoreError::fail(format!("open reps: {e}")))?;
     let mut reps = Vec::new();
     for (i, line) in BufReader::new(f).lines().enumerate() {
         let line = line?;
@@ -196,7 +198,7 @@ pub fn scan_orfs(
                     coding_label(score, cfg.hexamer_coding_min, cfg.hexamer_noncoding_max),
                 )
             }
-            None => (0, false, None, None, "noncoding"),
+            None => (0, false, None, None, "no_orf"),
         };
         rows.push(vec![
             loc.clone(),

@@ -26,9 +26,8 @@ fn is_bgzf_eof_trailer(tail: &[u8; BGZF_EOF_LEN]) -> bool {
 }
 
 pub fn validate_bam_integrity(bam_path: &Path) -> Result<()> {
-    let meta = std::fs::metadata(bam_path).map_err(|e| {
-        CoreError::fail(format!("cannot stat BAM {}: {e}", bam_path.display()))
-    })?;
+    let meta = std::fs::metadata(bam_path)
+        .map_err(|e| CoreError::fail(format!("cannot stat BAM {}: {e}", bam_path.display())))?;
     let size = meta.len();
     if size < BGZF_EOF_LEN as u64 {
         return Err(CoreError::fail(format!(
@@ -36,12 +35,14 @@ pub fn validate_bam_integrity(bam_path: &Path) -> Result<()> {
             bam_path.display()
         )));
     }
-    let mut f = File::open(bam_path).map_err(|e| {
-        CoreError::fail(format!("cannot open BAM {}: {e}", bam_path.display()))
-    })?;
+    let mut f = File::open(bam_path)
+        .map_err(|e| CoreError::fail(format!("cannot open BAM {}: {e}", bam_path.display())))?;
     let mut head = [0u8; 2];
     f.read_exact(&mut head).map_err(|e| {
-        CoreError::fail(format!("cannot read BAM header bytes {}: {e}", bam_path.display()))
+        CoreError::fail(format!(
+            "cannot read BAM header bytes {}: {e}",
+            bam_path.display()
+        ))
     })?;
     if head != [0x1f, 0x8b] {
         return Err(CoreError::fail(format!(
@@ -51,12 +52,14 @@ pub fn validate_bam_integrity(bam_path: &Path) -> Result<()> {
             head[1]
         )));
     }
-    f.seek(SeekFrom::End(-(BGZF_EOF_LEN as i64))).map_err(|e| {
-        CoreError::fail(format!("cannot seek BAM {}: {e}", bam_path.display()))
-    })?;
+    f.seek(SeekFrom::End(-(BGZF_EOF_LEN as i64)))
+        .map_err(|e| CoreError::fail(format!("cannot seek BAM {}: {e}", bam_path.display())))?;
     let mut tail = [0u8; BGZF_EOF_LEN];
     f.read_exact(&mut tail).map_err(|e| {
-        CoreError::fail(format!("cannot read BAM EOF trailer {}: {e}", bam_path.display()))
+        CoreError::fail(format!(
+            "cannot read BAM EOF trailer {}: {e}",
+            bam_path.display()
+        ))
     })?;
     if !is_bgzf_eof_trailer(&tail) {
         return Err(CoreError::fail(format!(
@@ -122,9 +125,9 @@ pub fn sq_sha256(sq: &[(String, u64)]) -> String {
 }
 
 pub fn is_coordinate_sorted(header_text: &str) -> bool {
-    header_text.lines().any(|line| {
-        line.starts_with("@HD") && line.split('\t').any(|f| f == "SO:coordinate")
-    })
+    header_text
+        .lines()
+        .any(|line| line.starts_with("@HD") && line.split('\t').any(|f| f == "SO:coordinate"))
 }
 
 #[derive(Debug)]
@@ -225,9 +228,8 @@ pub fn infer_aligner_family(header_text: &str) -> Result<AlignerFamily> {
 
 /// Sequential reader for full-file scans (sort / layout). One htslib thread.
 pub fn open_sequential(bam_path: &Path) -> Result<bam::Reader> {
-    let mut reader = bam::Reader::from_path(bam_path).map_err(|e| {
-        CoreError::fail(format!("cannot open BAM {}: {e}", bam_path.display()))
-    })?;
+    let mut reader = bam::Reader::from_path(bam_path)
+        .map_err(|e| CoreError::fail(format!("cannot open BAM {}: {e}", bam_path.display())))?;
     let _ = reader.set_threads(1);
     Ok(reader)
 }
@@ -326,7 +328,10 @@ mod tests {
     #[test]
     fn star_plus_bowtie2_fails() {
         let h = "@PG\tID:STAR\tPN:STAR\n@PG\tID:bowtie2\tPN:bowtie2\n";
-        assert!(infer_aligner_family(h).unwrap_err().to_string().contains("Bowtie2"));
+        assert!(infer_aligner_family(h)
+            .unwrap_err()
+            .to_string()
+            .contains("Bowtie2"));
     }
 
     #[test]

@@ -2,6 +2,16 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.1.9] - 2026-08-23
+
+- Fixed: the Folding request User-Agent now reports the installed package
+  version instead of a stale hard-coded value.
+- Removed unused Rust fields and redundant conversions; normal Rust builds are
+  warning-free.
+- Added repository, homepage, and documentation metadata to the Rust crate.
+- Updated Python package license metadata to the current SPDX form.
+- Docs: corrected user-facing wording and standardized American English.
+
 ## [0.1.8] - 2026-08-22
 
 - Fixed: unstranded (`strandedness: unstranded`) loci had their canonical-splice check and their ORF/coding-score scan silently read on the plus strand only, so a true minus-strand GT-AG/GC-AG intron scored as non-canonical and some loci were translated on the wrong strand. `splice::infer_unstranded_plus` now scores each intron's donor/acceptor motif in both directions and picks the better-supported strand once per transcript; both `splice_features` (the canonical-splice gate) and `orf::splice_seq` (ORF finding / coding score) use that call instead of each defaulting to plus independently. Only unstranded samples are affected.

@@ -174,7 +174,7 @@ def stage1_score(rec: dict[str, Any]) -> tuple[float, list[str]]:
 
     hexamer = _num(rec.get("coding_score"))
     label = str(rec.get("coding_label") or "").strip().lower()
-    if label == "coding" and hexamer is not None and hexamer > 0:
+    if label == "hexamer_positive" and hexamer is not None and hexamer > 0:
         score += 15
     elif hexamer is not None and hexamer > 0:
         score += 8

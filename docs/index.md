@@ -109,7 +109,7 @@ Mouse (GENCODE M39 / GRCm39) and human (GENCODE / GRCh38) are supported.
 :::{note}
 TxNova is **0.1.x** (mouse and human). The documented interface is the CLI
 (`init`, `preflight`, `run`, `report`) and `config.yaml`. Pin the installed
-version in Methods (`txnova==0.1.8` for this tree). Cite
+version in Methods (`txnova==0.1.9` for this tree). Cite
 [doi:10.5281/zenodo.21970482](https://doi.org/10.5281/zenodo.21970482).
 :::
 

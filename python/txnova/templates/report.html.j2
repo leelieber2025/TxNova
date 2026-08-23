@@ -138,7 +138,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 
 <h2>Residual splice loci</h2>
 {% if residuals %}
-<p class="note">{{ n_residuals }} intergenic unassembled leak junctions clustered into locus hypotheses (shared splice site or a 30–20 kb constitutive exon between adjacent introns). Includes control-silent and both-group splices (<code>cohort</code>). Terminal exons follow treat coverage from the splice site (2 kb cap). Residual loci are in <code>universe.gtf</code> and go through quantify, gates, and DE. This table is the locus-hypothesis list, not the final candidate table.{% if residuals and n_residuals > residuals|length %} Showing {{ residuals|length }} with most junctions.{% endif %} See <code>candidates/residual.tsv</code>.</p>
+<p class="note">{{ n_residuals }} intergenic unassembled leak junctions clustered into locus hypotheses (shared splice site or a 30–20 kb constitutive exon between adjacent introns). Includes control-silent and both-group splices (<code>cohort</code>). Terminal exons follow coverage pooled across all samples from the splice site (2 kb cap); group labels are not used. Residual loci are in <code>universe.gtf</code> and go through quantify, gates, and DE. This table is the locus-hypothesis list, not the final candidate table.{% if residuals and n_residuals > residuals|length %} Showing {{ residuals|length }} with most junctions.{% endif %} See <code>candidates/residual.tsv</code>.</p>
 <div class="wrap">
 <table>
   <thead>

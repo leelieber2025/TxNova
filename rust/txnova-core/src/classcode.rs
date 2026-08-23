@@ -57,13 +57,10 @@ struct ExonHit {
 #[derive(Clone)]
 struct BodyHit {
     strand: char,
-    gene_id: String,
-    gene_name: String,
 }
 
 #[derive(Clone)]
 struct TxHit {
-    strand: char,
     transcript_id: String,
     start: u64,
     end: u64,
@@ -100,7 +97,6 @@ fn build_ref(genes: &[GeneBody], txs: &[Transcript]) -> RefIdx {
             start: t.start(),
             end: t.end(),
             data: TxHit {
-                strand: t.strand,
                 transcript_id: t.transcript_id.clone(),
                 start: t.start(),
                 end: t.end(),
@@ -122,11 +118,7 @@ fn build_ref(genes: &[GeneBody], txs: &[Transcript]) -> RefIdx {
         bodies.entry(g.chrom.clone()).or_default().push(Interval {
             start: g.start,
             end: g.end,
-            data: BodyHit {
-                strand: g.strand,
-                gene_id: g.gene_id.clone(),
-                gene_name: g.gene_name.clone(),
-            },
+            data: BodyHit { strand: g.strand },
         });
     }
 
@@ -146,7 +138,7 @@ fn build_ref(genes: &[GeneBody], txs: &[Transcript]) -> RefIdx {
     }
 }
 
-pub fn classify_transcript(t: &Transcript, idx: &RefIdx, sample_strandedness: &str) -> Class {
+fn classify_transcript(t: &Transcript, idx: &RefIdx, sample_strandedness: &str) -> Class {
     let uns = unstranded_mode(sample_strandedness, t.strand);
     let empty_ex = IvIndex::from_intervals(Vec::new());
     let empty_bd = IvIndex::from_intervals(Vec::new());
@@ -166,7 +158,9 @@ pub fn classify_transcript(t: &Transcript, idx: &RefIdx, sample_strandedness: &s
             if same_strand_hit(t.strand, hit.data.strand, uns) {
                 same_exon = true;
                 let ov = e.end.min(hit.end) - e.start.max(hit.start) + 1;
-                *overlap_len.entry(hit.data.transcript_id.clone()).or_insert(0) += ov;
+                *overlap_len
+                    .entry(hit.data.transcript_id.clone())
+                    .or_insert(0) += ov;
             } else if antisense_hit(t.strand, hit.data.strand, uns) {
                 anti_exon = true;
             }
@@ -199,9 +193,7 @@ pub fn classify_transcript(t: &Transcript, idx: &RefIdx, sample_strandedness: &s
         let best = overlap_len.into_iter().max_by_key(|(_, n)| *n);
         if let Some((tid, _)) = best {
             for hit in tx_ix.overlapping(t0, t1) {
-                if hit.data.transcript_id == tid
-                    && (t0 < hit.data.start || t1 > hit.data.end)
-                {
+                if hit.data.transcript_id == tid && (t0 < hit.data.start || t1 > hit.data.end) {
                     return Class::Extension;
                 }
             }
@@ -231,7 +223,12 @@ fn exon_structure(t: &Transcript) -> String {
         .join(",")
 }
 
-pub fn classify_gtfs(merged_gtf: &str, ref_gtf: &str, out_tsv: &str, cfg_json: &str) -> Result<(usize, usize)> {
+pub fn classify_gtfs(
+    merged_gtf: &str,
+    ref_gtf: &str,
+    out_tsv: &str,
+    cfg_json: &str,
+) -> Result<(usize, usize)> {
     let cfg: ClassifyCfg = serde_json::from_str(cfg_json)?;
     let merged = parse_gtf(Path::new(merged_gtf))?;
     let reference = parse_gtf(Path::new(ref_gtf))?;

@@ -16,9 +16,8 @@ pub struct HexamerTable {
 
 impl HexamerTable {
     pub fn load(path: &Path) -> Result<Self> {
-        let f = File::open(path).map_err(|e| {
-            CoreError::fail(format!("hexamer table {}: {e}", path.display()))
-        })?;
+        let f = File::open(path)
+            .map_err(|e| CoreError::fail(format!("hexamer table {}: {e}", path.display())))?;
         let mut llr = HashMap::new();
         for (i, line) in BufReader::new(f).lines().enumerate() {
             let line = line?;
@@ -31,7 +30,10 @@ impl HexamerTable {
                 continue;
             }
             let hex_b = hex.as_bytes();
-            if hex_b.len() != 6 || !hex_b.iter().all(|&b| matches!(b, b'A' | b'C' | b'G' | b'T' | b'a' | b'c' | b'g' | b't'))
+            if hex_b.len() != 6
+                || !hex_b
+                    .iter()
+                    .all(|&b| matches!(b, b'A' | b'C' | b'G' | b'T' | b'a' | b'c' | b'g' | b't'))
             {
                 return Err(CoreError::fail(format!(
                     "hexamer table {} line {}: expected 6-mer, got {hex:?}",
@@ -196,10 +198,10 @@ pub fn fickett_score(seq: &[u8]) -> f64 {
 /// Mutual exclusive labels, in this order (strict inequalities).
 pub fn coding_label(score: Option<f64>, coding_min: f64, noncoding_max: f64) -> &'static str {
     match score {
-        None => "noncoding",
-        Some(s) if !s.is_finite() => "noncoding",
-        Some(s) if s > coding_min => "coding",
-        Some(s) if s < noncoding_max => "noncoding",
+        None => "no_orf",
+        Some(s) if !s.is_finite() => "no_orf",
+        Some(s) if s > coding_min => "hexamer_positive",
+        Some(s) if s < noncoding_max => "hexamer_negative",
         Some(_) => "ambiguous",
     }
 }
@@ -219,9 +221,9 @@ mod tests {
 
     #[test]
     fn label_contract() {
-        assert_eq!(coding_label(None, 0.0, 0.0), "noncoding");
-        assert_eq!(coding_label(Some(0.1), 0.0, 0.0), "coding");
-        assert_eq!(coding_label(Some(-0.1), 0.0, 0.0), "noncoding");
+        assert_eq!(coding_label(None, 0.0, 0.0), "no_orf");
+        assert_eq!(coding_label(Some(0.1), 0.0, 0.0), "hexamer_positive");
+        assert_eq!(coding_label(Some(-0.1), 0.0, 0.0), "hexamer_negative");
         assert_eq!(coding_label(Some(0.0), 0.0, 0.0), "ambiguous");
     }
 
@@ -256,8 +258,14 @@ mod tests {
         let tab = HexamerTable::load(&p).unwrap();
         let pos = tab.score(b"AAAAAAAA").unwrap();
         let neg = tab.score(b"TTTTTTTT").unwrap();
-        assert!(pos > 10.0, "coding-only hexamer should be a large +LLR, got {pos}");
-        assert!(neg < -10.0, "noncoding-only hexamer should be a large -LLR, got {neg}");
+        assert!(
+            pos > 10.0,
+            "coding-only hexamer should be a large +LLR, got {pos}"
+        );
+        assert!(
+            neg < -10.0,
+            "noncoding-only hexamer should be a large -LLR, got {neg}"
+        );
         let _ = std::fs::remove_file(&p);
     }
 
