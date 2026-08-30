@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from txnova import USER_AGENT
 from txnova.logging import get_logger
 
 log = get_logger("txnova.function")
@@ -31,7 +32,7 @@ TOP_N = 5
 
 
 def _http_json(url: str, timeout: int = 60) -> dict:
-    req = urllib.request.Request(url, headers={"User-Agent": "txnova/0.4"})
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return json.loads(resp.read().decode())
 
@@ -91,30 +92,47 @@ def _parse_hits(payload: dict) -> list[dict]:
     return out
 
 
-def foldseek_search(pdb: Path, *, timeout_s: int = 180) -> list[dict]:
-    import subprocess
+def _multipart(fields: list[tuple[str, str]], files: list[tuple[str, Path]]) -> tuple[bytes, str]:
+    import uuid
 
-    cmd = [
-        "curl",
-        "-sS",
-        "-m",
-        "60",
-        "-X",
-        "POST",
+    boundary = "----TxNova" + uuid.uuid4().hex
+    chunks: list[bytes] = []
+    for name, value in fields:
+        chunks.append(
+            f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode()
+        )
+    for name, path in files:
+        header = (
+            f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"; '
+            f'filename="{path.name}"\r\nContent-Type: application/octet-stream\r\n\r\n'
+        )
+        chunks.append(header.encode())
+        chunks.append(path.read_bytes())
+        chunks.append(b"\r\n")
+    chunks.append(f"--{boundary}--\r\n".encode())
+    return b"".join(chunks), boundary
+
+
+def foldseek_search(pdb: Path, *, timeout_s: int = 180) -> list[dict]:
+    body, boundary = _multipart(
+        [
+            ("mode", "3diaa"),
+            ("database[]", "pdb100"),
+            ("database[]", "afdb50"),
+        ],
+        [("q", pdb)],
+    )
+    req = urllib.request.Request(
         FS_TICKET,
-        "-F",
-        f"q=@{pdb}",
-        "-F",
-        "mode=3diaa",
-        "-F",
-        "database[]=pdb100",
-        "-F",
-        "database[]=afdb50",
-    ]
-    proc = subprocess.run(cmd, capture_output=True, text=True)
-    if proc.returncode != 0:
-        raise RuntimeError(proc.stderr[-400:] or "foldseek ticket failed")
-    ticket = json.loads(proc.stdout)
+        data=body,
+        method="POST",
+        headers={
+            "User-Agent": USER_AGENT,
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        ticket = json.loads(resp.read().decode())
     tid = ticket.get("id")
     if not tid:
         raise RuntimeError(f"no Foldseek ticket: {ticket}")

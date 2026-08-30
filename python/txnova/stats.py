@@ -27,7 +27,10 @@ def run_deseq(
         ) from e
 
     counts = pd.read_csv(locus_counts, sep="\t").set_index("locus_id")
-    sample_ids = [r.sample_id for r in rows]
+    labeled = [r for r in rows if r.group in {"control", "treat"}]
+    if not labeled:
+        raise TxNovaError("DESeq requires labeled control and treat samples")
+    sample_ids = [r.sample_id for r in labeled]
     missing = [s for s in sample_ids if s not in counts.columns]
     if missing:
         raise TxNovaError(f"locus_counts missing samples {missing}")
@@ -53,7 +56,7 @@ def run_deseq(
     # pydeseq2 wants samples x genes
     counts_t = fit.T
     meta = pd.DataFrame(
-        {"condition": [r.group for r in rows]},
+        {"condition": [r.group for r in labeled]},
         index=sample_ids,
     )
     dds = DeseqDataSet(

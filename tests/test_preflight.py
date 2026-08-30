@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import yaml
-
 from txnova.config import load_config
 from txnova.preflight import run_preflight, write_preflight_json
 from txnova.samples import load_samples
@@ -142,9 +141,8 @@ def test_fail_mixed_strandedness(tmp_path: Path) -> None:
 
 
 def test_cli_preflight_ok(tmp_path: Path) -> None:
-    from typer.testing import CliRunner
-
     from txnova.cli import app
+    from typer.testing import CliRunner
 
     cfg = _cfg(tmp_path)
     r = CliRunner().invoke(app, ["preflight", "-c", str(tmp_path / "c.yaml")])
@@ -184,3 +182,51 @@ def test_ok_treat_only(tmp_path: Path) -> None:
     assert report["n_treat"] == 2
     assert report["n_control"] == 0
     assert cfg.de.enabled is False
+
+
+def test_fail_treat_min_exceeds_n_treat(tmp_path: Path) -> None:
+    cfg = _cfg(tmp_path)
+    cfg.filters.treat_min_detected_replicates = 3
+    rows = load_samples(cfg.samples)
+    assert len([r for r in rows if r.group == "treat"]) == 2
+    report = run_preflight(cfg, rows)
+    assert report["ok"] is False
+    assert any("treat_min_detected_replicates" in e for e in report["errors"])
+
+
+def test_fail_mixed_blank_and_labeled_groups(tmp_path: Path) -> None:
+    sheet = tmp_path / "s.tsv"
+    sheet.write_text(
+        "sample_id\tbam\tgroup\tstrandedness\treplicate\n"
+        f"ctrl_1\t{FIXTURES / 'ctrl_1.bam'}\tcontrol\trf\t1\n"
+        f"ctrl_2\t{FIXTURES / 'ctrl_2.bam'}\tcontrol\trf\t2\n"
+        f"treat_1\t{FIXTURES / 'treat_1.bam'}\ttreat\trf\t1\n"
+        f"treat_2\t{FIXTURES / 'treat_2.bam'}\ttreat\trf\t2\n"
+        f"extra\t{FIXTURES / 'ctrl_1.bam'}\t\trf\t1\n",
+        encoding="utf-8",
+    )
+    cfg = _cfg(tmp_path, sheet=sheet)
+    rows = load_samples(cfg.samples)
+    report = run_preflight(cfg, rows)
+    assert report["ok"] is False
+    assert any("blank group" in e for e in report["errors"])
+
+
+def test_fail_missing_rmsk_bed_on_cfg(tmp_path: Path) -> None:
+    cfg = _cfg(tmp_path)
+    cfg.genome.rmsk_bed = tmp_path / "no-such.bed"
+    rows = load_samples(cfg.samples)
+    report = run_preflight(cfg, rows)
+    assert report["ok"] is False
+    assert any("rmsk_bed" in e for e in report["errors"])
+
+
+def test_warn_rmsk_chroms_disjoint(tmp_path: Path) -> None:
+    bed = tmp_path / "rmsk.bed"
+    bed.write_text("chrUn_random\t0\t10\tAlu\tAlu\n")
+    cfg = _cfg(tmp_path)
+    cfg.genome.rmsk_bed = bed
+    rows = load_samples(cfg.samples)
+    report = run_preflight(cfg, rows)
+    assert report["ok"] is True, report.get("errors")
+    assert any("disjoint" in w for w in report.get("warnings") or [])

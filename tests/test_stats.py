@@ -3,10 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
-
 from txnova.config import TxNovaConfig
-from txnova.samples import SampleRow
 from txnova.orchestrator import _join_coding, apply_de_filter, write_final_transcripts
+from txnova.samples import SampleRow
 from txnova.stats import de_pass_mask, de_status_series, run_deseq
 
 
@@ -164,7 +163,7 @@ def test_join_coding_twice_no_suffix_columns(tmp_path: Path) -> None:
     orfs = tmp_path / "orfs.tsv"
     orfs.write_text(
         "locus_id\ttranscript_id\tlongest_orf_aa\torf_complete\tcoding_score\tfickett_score\tcoding_label\n"
-        "L1\tT1\t80\ttrue\t0.2\t0.5\thexamer_positive\n",
+        "L1\tT1\t80\ttrue\t0.2\t0.5\tcoding\n",
         encoding="utf-8",
     )
     dest = tmp_path / "candidates.tsv"
@@ -177,7 +176,7 @@ def test_join_coding_twice_no_suffix_columns(tmp_path: Path) -> None:
     out = pd.read_csv(dest, sep="\t")
     assert "coding_label" in out.columns
     assert "coding_label_x" not in out.columns
-    assert str(out.iloc[0]["coding_label"]) == "hexamer_positive"
+    assert str(out.iloc[0]["coding_label"]) == "coding"
 
 
 def test_final_transcripts_follow_candidates_not_gates(tmp_path: Path) -> None:
@@ -192,3 +191,29 @@ def test_final_transcripts_follow_candidates_not_gates(tmp_path: Path) -> None:
     write_final_transcripts(cls, cand, dest)
     out = pd.read_csv(dest, sep="\t")
     assert list(out["gene_id"]) == ["L1"]
+
+
+def test_deseq_ignores_blank_group_column(tmp_path: Path) -> None:
+    counts = pd.DataFrame(
+        {
+            "locus_id": ["KNOWN"],
+            "c1": [1000],
+            "c2": [1100],
+            "t1": [1000],
+            "t2": [900],
+            "extra": [50],
+        }
+    )
+    path = tmp_path / "locus_counts.tsv"
+    counts.to_csv(path, sep="\t", index=False)
+    rows = _rows() + [
+        SampleRow(
+            sample_id="extra",
+            bam=Path("/extra.bam"),
+            group="",
+            strandedness="rf",
+            replicate=1,
+        )
+    ]
+    res = run_deseq(_cfg(), rows, path, tmp_path / "de.tsv")
+    assert set(res["locus_id"]) == {"KNOWN"}

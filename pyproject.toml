@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "txnova"
-version = "0.1.9"
+version = "0.1.10"
 description = "Unannotated spliced residual loci from bulk RNA-seq BAMs"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -66,3 +66,22 @@ addopts = "-q"
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+
+[tool.ruff.lint]
+# Latest ruff enables many rules 0.1.9 already violated (typer Option defaults,
+# network-call except Exception, HTML string concat). Keep E/F/I/W/UP green.
+ignore = [
+    "B008",
+    "B017",
+    "BLE001",
+    "EXE001",
+    "ISC004",
+    "PLC0206",
+    "PYI034",
+    "RUF007",
+    "RUF015",
+    "RUF059",
+    "SIM102",
+    "TRY004",
+    "UP031",
+]

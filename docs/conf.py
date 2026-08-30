@@ -10,7 +10,7 @@ author = "Zhao Li (李钊)"
 copyright = f"{datetime.now():%Y}, {author}"
 repository_url = "https://github.com/leelieber2025/TxNova"
 default_branch = "main"
-release = "0.1.9"
+release = "0.1.10"
 version = release
 
 html_context = {

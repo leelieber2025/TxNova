@@ -1,5 +1,5 @@
 {% set name = "txnova" %}
-{% set version = "0.1.7" %}
+{% set version = "0.1.10" %}
 
 package:
   name: {{ name }}
@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: "3a62cd926e360da1aa40ebb1989379f3487b827c348fdb0312215a93f57a7555"
+  sha256: "PLACEHOLDER_FILL_AFTER_SDIST"
 
 build:
   number: 0
@@ -57,7 +57,7 @@ about:
   home: https://github.com/leelieber2025/TxNova
   dev_url: https://github.com/leelieber2025/TxNova
   doc_url: https://txnova.readthedocs.io
-  summary: Experimental-group-specific novel intergenic transcripts from bulk RNA-seq BAMs
+  summary: Residual catalog of unannotated spliced loci from bulk RNA-seq (contrast optional)
   license: Apache-2.0
   license_file: LICENSE
 

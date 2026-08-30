@@ -600,6 +600,14 @@ def apply_gates(
             counts=counts,
             rows=rows,
         )
+        if rmsk_idx is not None:
+            frac_rm = rmsk_frac(
+                str(t["chrom"]), rec_out["exon_structure"], int(length_nt), rmsk_idx
+            )
+            if frac_rm >= f.max_rmsk_frac:
+                continue
+            passed.append("rmsk")
+            rec_out["gates_passed"] = ",".join(passed)
         if contrast:
             if control_max >= f.control_max_tpm:
                 unnamed_rows.append(rec_out)
@@ -608,13 +616,6 @@ def apply_gates(
                 continue
             if treat_med < f.treat_median_tpm:
                 continue
-        if rmsk_idx is not None:
-            frac_rm = rmsk_frac(
-                str(t["chrom"]), rec_out["exon_structure"], int(length_nt), rmsk_idx
-            )
-            if frac_rm >= f.max_rmsk_frac:
-                continue
-            passed.append("rmsk")
         rec_out["gates_passed"] = ",".join(passed + ["detect"])
         out_rows.append(rec_out)
 

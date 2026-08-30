@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 import pandas as pd
-
 from txnova import _core
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"

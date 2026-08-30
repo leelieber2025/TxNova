@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
-
 from txnova.gene_score import (
     chrom_class,
     junction_min,
@@ -16,6 +15,8 @@ from txnova.gene_score import (
 
 def test_chrom_and_junction_helpers() -> None:
     assert chrom_class("chr11") == "primary"
+    assert chrom_class("1") == "primary"
+    assert chrom_class("Y") == "primary"
     assert chrom_class("GL456233.2") == "unplaced"
     assert chrom_class("MU069435.1") == "unplaced"
     assert chrom_class("chrY") == "primary"
@@ -47,7 +48,7 @@ def test_unplaced_and_nosplice_rank_below_chromosomal() -> None:
             "longest_orf_aa": 200,
             "orf_complete": True,
             "coding_score": 0.1,
-            "coding_label": "hexamer_positive",
+            "coding_label": "coding",
             "nearest_distance_bp": 1e6,
             "treat_n_detected": 6,
         },
@@ -62,7 +63,7 @@ def test_unplaced_and_nosplice_rank_below_chromosomal() -> None:
             "longest_orf_aa": 205,
             "orf_complete": True,
             "coding_score": 0.33,
-            "coding_label": "hexamer_positive",
+            "coding_label": "coding",
             "nearest_distance_bp": 3900,
             "nearest_any_distance_bp": 3900,
             "treat_n_detected": 6,
@@ -122,7 +123,7 @@ def test_write_gene_rank_uses_function_and_resorts(tmp_path: Path) -> None:
                 "longest_orf_aa": 90,
                 "orf_complete": True,
                 "coding_score": 0.5,
-                "coding_label": "hexamer_positive",
+                "coding_label": "coding",
             },
             {
                 "locus_id": "OK",
@@ -142,7 +143,7 @@ def test_write_gene_rank_uses_function_and_resorts(tmp_path: Path) -> None:
                 "longest_orf_aa": 120,
                 "orf_complete": True,
                 "coding_score": 0.3,
-                "coding_label": "hexamer_positive",
+                "coding_label": "coding",
             },
         ]
     ).to_csv(src, sep="\t", index=False)

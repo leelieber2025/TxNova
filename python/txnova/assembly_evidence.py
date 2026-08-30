@@ -125,8 +125,7 @@ def attach_assembly_evidence(
                 s1 = max(h["end"] for h in hits)
                 row[f"{r.sample_id}_asm_span"] = f"{s0}-{s1}"
                 delta = max(abs(s0 - start), abs(s1 - end))
-                if delta > max_delta:
-                    max_delta = delta
+                max_delta = max(max_delta, delta)
                 assembled.append(r.sample_id)
                 if r.sample_id in controls:
                     n_ctrl += 1

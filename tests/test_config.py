@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from txnova.config import (
     TxNovaConfig,
     load_config,
@@ -68,7 +67,7 @@ def test_model_direct() -> None:
     assert cfg.coding.fold is True
     assert cfg.coding.orphan is True
     assert cfg.filters.reject_bridging_junction is True
-    assert cfg.filters.treat_min_detected_replicates == 3
+    assert cfg.filters.treat_min_detected_replicates == 2
     assert cfg.filters.control_max_tpm == 0.5
     assert cfg.filters.max_rmsk_frac == 0.1
     from txnova.config import packaged_hexamer_table, resolve_hexamer_table

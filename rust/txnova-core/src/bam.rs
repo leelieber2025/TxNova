@@ -124,6 +124,8 @@ pub fn sq_sha256(sq: &[(String, u64)]) -> String {
     format!("{:x}", h.finalize())
 }
 
+#[allow(dead_code)]
+// Preflight always samples coordinate order, even if @HD SO:coordinate.
 pub fn is_coordinate_sorted(header_text: &str) -> bool {
     header_text
         .lines()

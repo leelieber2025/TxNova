@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-title: "TxNova: residual-splice discovery of experimental-group-specific intergenic loci"
+title: "TxNova: residual catalog of unannotated spliced loci from bulk RNA-seq (contrast optional)"
 message: >-
   If you use this software, please cite it using the metadata below.
 type: software
@@ -18,7 +18,7 @@ identifiers:
     description: >-
       Concept DOI representing all versions; always resolves to the latest release.
 license: Apache-2.0
-version: 0.1.9
+version: 0.1.10
 keywords:
   - RNA-seq
   - bulk RNA-seq

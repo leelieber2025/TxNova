@@ -200,8 +200,8 @@ pub fn coding_label(score: Option<f64>, coding_min: f64, noncoding_max: f64) -> 
     match score {
         None => "no_orf",
         Some(s) if !s.is_finite() => "no_orf",
-        Some(s) if s > coding_min => "hexamer_positive",
-        Some(s) if s < noncoding_max => "hexamer_negative",
+        Some(s) if s > coding_min => "coding",
+        Some(s) if s < noncoding_max => "noncoding",
         Some(_) => "ambiguous",
     }
 }
@@ -222,8 +222,8 @@ mod tests {
     #[test]
     fn label_contract() {
         assert_eq!(coding_label(None, 0.0, 0.0), "no_orf");
-        assert_eq!(coding_label(Some(0.1), 0.0, 0.0), "hexamer_positive");
-        assert_eq!(coding_label(Some(-0.1), 0.0, 0.0), "hexamer_negative");
+        assert_eq!(coding_label(Some(0.1), 0.0, 0.0), "coding");
+        assert_eq!(coding_label(Some(-0.1), 0.0, 0.0), "noncoding");
         assert_eq!(coding_label(Some(0.0), 0.0, 0.0), "ambiguous");
     }
 

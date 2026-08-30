@@ -22,6 +22,7 @@ import pandas as pd
 
 from txnova.fold import parse_peptides_fa
 from txnova.logging import get_logger
+from txnova.naming import chrom_key
 from txnova.orphan import hmmscan, parse_exons, score_conservation, ucsc_genome
 
 log = get_logger("txnova.gene_score")
@@ -44,18 +45,18 @@ def top_rank_ids(path: Path, n: int = REPORT_N) -> list[str]:
 
 _UNPLACED = re.compile(
     r"^(GL|JH|KB|KQ|KI|MU|chrUn|Un_|NW_|NT_)",
-    re.I,
+    re.IGNORECASE,
 )
-_PRIMARY = re.compile(r"^chr([1-9]|1[0-9]|2[0-2]|[XY])$", re.I)
+_PRIMARY = re.compile(r"^chr([1-9]|1[0-9]|2[0-2]|[XY])$", re.IGNORECASE)
 _TE = re.compile(
     r"gag|pol\b|rve|rnase[_ ]?h|mlvin|integrase|rvt|ltr|erv\b|transpos|dde_tnp|"
     r"retrovir|tlv_|capsid|\bcoat\b",
-    re.I,
+    re.IGNORECASE,
 )
 _PROCESSED = re.compile(
     r"atp.?synt|mt_atp|cox[1-3]?\b|cytochrom|nadh_dehydro|ef-hand|aif-1|"
     r"globin|histone|ubiquitin|gapdh|actin",
-    re.I,
+    re.IGNORECASE,
 )
 
 
@@ -93,12 +94,14 @@ def junction_min(value: Any) -> int | None:
 
 
 def chrom_class(chrom: Any) -> str:
-    c = str(chrom or "")
-    if _PRIMARY.match(c):
+    raw = str(chrom or "")
+    key = chrom_key(raw)
+    probe = raw if _PRIMARY.match(raw) else f"chr{key}"
+    if key.upper() != "MT" and _PRIMARY.match(probe):
         return "primary"
-    if c.lower() in {"chry", "y"}:
+    if raw.lower() in {"chry"} and not _PRIMARY.match(probe):
         return "chrY"
-    if _UNPLACED.match(c) or (c and not c.lower().startswith("chr")):
+    if _UNPLACED.match(raw) or _UNPLACED.match(key) or (raw and not raw.lower().startswith("chr")):
         return "unplaced"
     return "other"
 
@@ -174,7 +177,7 @@ def stage1_score(rec: dict[str, Any]) -> tuple[float, list[str]]:
 
     hexamer = _num(rec.get("coding_score"))
     label = str(rec.get("coding_label") or "").strip().lower()
-    if label == "hexamer_positive" and hexamer is not None and hexamer > 0:
+    if label in {"coding", "hexamer_positive"} and hexamer is not None and hexamer > 0:
         score += 15
     elif hexamer is not None and hexamer > 0:
         score += 8

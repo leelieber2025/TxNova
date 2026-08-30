@@ -4,6 +4,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from txnova.errors import TxNovaError
+
+
+def _chrom_key(name: str) -> str:
+    n = str(name)
+    n = n.removeprefix("chr")
+    if n.upper() in {"M", "MT"}:
+        return "MT"
+    return n
+
 
 def parse_exons(exon_structure: str) -> list[tuple[int, int]]:
     out: list[tuple[int, int]] = []
@@ -23,8 +33,15 @@ def parse_exons(exon_structure: str) -> list[tuple[int, int]]:
 
 
 def load_rmsk(path: Path) -> dict[str, list[tuple[int, int, str]]]:
+    path = Path(path)
+    if not path.is_file():
+        raise TxNovaError(f"RepeatMasker BED not found: {path}")
     by: dict[str, list[tuple[int, int, str]]] = {}
-    with path.open() as fh:
+    try:
+        fh = path.open()
+    except OSError as e:
+        raise TxNovaError(f"RepeatMasker BED not found: {path}") from e
+    with fh:
         for line in fh:
             if not line.strip() or line.startswith("#"):
                 continue
@@ -33,7 +50,11 @@ def load_rmsk(path: Path) -> dict[str, list[tuple[int, int, str]]]:
                 continue
             chrom, start, end = p[0], int(p[1]), int(p[2])
             fam = p[4] if len(p) > 4 else (p[3] if len(p) > 3 else "")
-            by.setdefault(chrom, []).append((start, end, fam))
+            rec = (start, end, fam)
+            ck = _chrom_key(chrom)
+            by.setdefault(ck, []).append(rec)
+            if chrom != ck:
+                by.setdefault(chrom, []).append(rec)
     for chrom in by:
         by[chrom].sort()
     return by
@@ -51,7 +72,7 @@ def rmsk_frac(
 ) -> float:
     if length_nt <= 0:
         return 0.0
-    intervals = idx.get(chrom, [])
+    intervals = idx.get(_chrom_key(chrom), []) or idx.get(chrom, [])
     if not intervals:
         return 0.0
     total = 0

@@ -2,6 +2,33 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.1.10] - 2026-08-29
+
+- Default `treat_min_detected_replicates` is 2 so a first 2-vs-2 contrast run
+  can fill `candidates.tsv`. Preflight fails closed if the threshold exceeds
+  `n_treat`, if the sheet mixes blank `group` with labeled groups, or if a
+  configured `genome.rmsk_bed` is missing.
+- Unstranded leak junctions take strand from the intron motif (GT-AG / GC-AG /
+  AT-AC), then XS/ts; `+` and `-` are not clustered together. Canonical splice
+  also scores AT-AC.
+- `require_unique_nh` is honored in structure, leak, and quantify. Missing `NH`
+  is unique (STAR/HISAT2), never treated as 0.
+- RepeatMasker uses `chrom_key` (`chr1` ≡ `1`); rmsk is applied before the
+  contrast split so high-rmsk control-expressed loci leave both unnamed and
+  shared. `gates` stamps fingerprint the BED (including null); residual stamps
+  fingerprint FASTA `.fai`.
+- Quantify requires a matching CIGAR `N` for spliced loci. Leak harvest omits
+  annotation introns (no `assembled_u` class-hardcode). `annotate_leak` joins
+  harvest junctions to residual `intron_structure`.
+- DESeq uses only labeled control/treat columns. Paired-end BAM EOF flushes
+  remaining pending mates as dropped fragments (leak and quantify).
+- `coding_label` is `coding` / `noncoding` / `ambiguous` / `no_orf`.
+  `min_orf_aa` is the reporting floor. `chrom_class("1")` and `("Y")` are
+  primary. Shared-harvest IDs are excluded from finals.
+- Shared `USER_AGENT = txnova/{version}`; Foldseek uses urllib. One shared
+  FASTA `.fai` parser; a bad contig skips that locus instead of aborting the
+  run. Preflight always sample-checks BAM coordinate order.
+
 ## [0.1.9] - 2026-08-23
 
 - Fixed: the Folding request User-Agent now reports the installed package

@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
-
 from txnova import _core
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -104,3 +103,27 @@ def test_bad_cfg_json_fails(tmp_path: Path) -> None:
         assert "invalid JSON" in str(e) or "JSON" in str(e)
     else:
         raise AssertionError("expected JSON parse to fail")
+
+
+def test_spliced_locus_requires_matching_n(tmp_path: Path) -> None:
+    mer = _gtf(
+        tmp_path / "m.gtf",
+        'chr1\tX\ttranscript\t100\t400\t.\t+\t.\tgene_id "G1"; transcript_id "T1";\n'
+        'chr1\tX\texon\t100\t150\t.\t+\t.\tgene_id "G1"; transcript_id "T1";\n'
+        'chr1\tX\texon\t350\t400\t.\t+\t.\tgene_id "G1"; transcript_id "T1";\n',
+    )
+    out = _quant(tmp_path, mer, FIXTURES / "quant_exon_hit.bam")
+    loc = pd.read_csv(out / "locus_counts.tsv", sep="\t")
+    assert float(loc.iloc[0]["s1"]) == 0.0
+
+
+def test_matching_n_is_counted(tmp_path: Path) -> None:
+    mer = _gtf(
+        tmp_path / "m.gtf",
+        'chr1\tX\ttranscript\t400\t550\t.\t+\t.\tgene_id "G1"; transcript_id "T1";\n'
+        'chr1\tX\texon\t400\t450\t.\t+\t.\tgene_id "G1"; transcript_id "T1";\n'
+        'chr1\tX\texon\t500\t550\t.\t+\t.\tgene_id "G1"; transcript_id "T1";\n',
+    )
+    out = _quant(tmp_path, mer, FIXTURES / "junc_bridge.bam")
+    loc = pd.read_csv(out / "locus_counts.tsv", sep="\t")
+    assert float(loc.iloc[0]["s1"]) >= 1.0

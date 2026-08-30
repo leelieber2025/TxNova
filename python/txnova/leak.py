@@ -99,6 +99,33 @@ def exclude_shared_from_finals(final_path: Path, shared_path: Path, rows) -> int
     return n_drop
 
 
+def _residual_intron_index(residual: Path | None) -> dict[tuple[str, int, int, str], str]:
+    """Map harvest intron (chrom, start, end, strand) to residual_id."""
+    if residual is None:
+        return {}
+    df = _read_table(residual)
+    if df.empty or "residual_id" not in df.columns or "intron_structure" not in df.columns:
+        return {}
+    idx: dict[tuple[str, int, int, str], str] = {}
+    for rec in df.to_dict(orient="records"):
+        rid = str(rec.get("residual_id") or "")
+        if not rid:
+            continue
+        chrom = str(rec.get("chrom") or "")
+        strand = str(rec.get("strand") or ".")
+        for part in str(rec.get("intron_structure") or "").split(","):
+            part = part.strip()
+            if not part or "-" not in part:
+                continue
+            a, b = part.split("-", 1)
+            try:
+                start, end = int(a), int(b)
+            except ValueError:
+                continue
+            idx[(chrom, start, end, strand)] = rid
+    return idx
+
+
 def annotate_leak(
     leak_tsv: Path,
     *,
@@ -106,6 +133,7 @@ def annotate_leak(
     unnamed: Path,
     candidates: Path,
     shared: Path | None = None,
+    residual: Path | None = None,
 ) -> pd.DataFrame:
     if not leak_tsv.is_file() or leak_tsv.stat().st_size == 0:
         return pd.DataFrame()
@@ -116,14 +144,44 @@ def annotate_leak(
     u = _locus_set(unnamed)
     c = _locus_set(candidates)
     s = _locus_set(shared) if shared is not None else set()
-    loc = df["merged_locus"].fillna("").astype(str) if "merged_locus" in df.columns else ""
-    df["in_gates"] = loc.map(lambda x: x in g and x not in {"", "nan", "NA"})
-    df["in_unnamed"] = loc.map(lambda x: x in u and x not in {"", "nan", "NA"})
-    df["in_candidates"] = loc.map(lambda x: x in c and x not in {"", "nan", "NA"})
-    df["in_shared"] = loc.map(lambda x: x in s and x not in {"", "nan", "NA"})
+    intron_ix = _residual_intron_index(residual)
+
+    def _ids(rec: dict) -> list[str]:
+        out: list[str] = []
+        try:
+            key = (
+                str(rec.get("chrom") or ""),
+                int(rec.get("start")),
+                int(rec.get("end")),
+                str(rec.get("strand") or "."),
+            )
+        except (TypeError, ValueError):
+            key = None
+        if key is not None and key in intron_ix:
+            out.append(intron_ix[key])
+        ml = str(rec.get("merged_locus") or "")
+        if ml and ml not in {"", "nan", "NA"}:
+            out.append(ml)
+        return out
+
+    records = df.to_dict(orient="records")
+    in_g, in_u, in_c, in_s = [], [], [], []
+    for rec in records:
+        ids = _ids(rec)
+        in_g.append(any(x in g for x in ids))
+        in_u.append(any(x in u for x in ids))
+        in_c.append(any(x in c for x in ids))
+        in_s.append(any(x in s for x in ids))
+    df["in_gates"] = in_g
+    df["in_unnamed"] = in_u
+    df["in_candidates"] = in_c
+    df["in_shared"] = in_s
     df.to_csv(leak_tsv, sep="\t", index=False)
     n_u = int((df["status"] == "unassembled").sum()) if "status" in df.columns else 0
-    n_a = int((df["status"] == "assembled_u").sum()) if "status" in df.columns else 0
     n_sh = int((df["cohort"] == "shared").sum()) if "cohort" in df.columns else 0
-    log.info("leak table: %s unassembled, %s assembled_u, %s shared", n_u, n_a, n_sh)
+    log.info(
+        "leak table: %s unassembled (annotation intron omitted from harvest), %s shared",
+        n_u,
+        n_sh,
+    )
     return df

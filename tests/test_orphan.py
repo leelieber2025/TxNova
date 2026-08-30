@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
-
 from txnova.orphan import (
     annotate_orphans,
     collect_orphan_rows,
@@ -134,7 +133,7 @@ def test_annotate_orphans_writes_table(tmp_path: Path) -> None:
                 "exon_structure": "101-110,190-200",
                 "named_overlap": "none",
                 "longest_orf_aa": 53,
-                "coding_label": "hexamer_positive",
+                "coding_label": "coding",
             },
             {
                 "locus_id": "MSTRG.2",
@@ -147,7 +146,7 @@ def test_annotate_orphans_writes_table(tmp_path: Path) -> None:
                 "exon_structure": "1-5,8-10",
                 "named_overlap": "protein_coding",
                 "longest_orf_aa": 80,
-                "coding_label": "hexamer_positive",
+                "coding_label": "coding",
             },
         ]
     ).to_csv(src, sep="\t", index=False)

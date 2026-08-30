@@ -12,11 +12,13 @@ import re
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Any, Callable, Iterable
+from typing import Any
 
 import pandas as pd
 
+from txnova import USER_AGENT
 from txnova.fold import parse_peptides_fa
 from txnova.logging import get_logger
 
@@ -31,7 +33,7 @@ MAX_EVALUE = 0.01
 TOP_N = 5
 
 NONE_VALUES = {"", "none", "nan", "na"}
-_PFAM_VER = re.compile(r"^(PF\d+)\.\d+$", re.I)
+_PFAM_VER = re.compile(r"^(PF\d+)\.\d+$", re.IGNORECASE)
 
 TRACKS = {
     "mm39": {"phylop": "phyloP35way", "phastcons": "phastCons35way"},
@@ -138,7 +140,7 @@ def summarize_wig(items: Iterable[dict]) -> dict[str, Any]:
 
 
 def _http_json(url: str, *, data: bytes | None = None, timeout: int = 60) -> dict:
-    headers = {"User-Agent": "txnova/0.4", "Accept": "application/json"}
+    headers = {"User-Agent": USER_AGENT, "Accept": "application/json"}
     if data is not None:
         headers["Content-Type"] = "application/json"
     req = urllib.request.Request(url, data=data, method="POST" if data else "GET", headers=headers)

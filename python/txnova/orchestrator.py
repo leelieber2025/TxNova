@@ -6,9 +6,12 @@ from typing import Any
 
 import pandas as pd
 
+from txnova.assemble import ASSEMBLER_VERSION, Assembler
+from txnova.assembly_evidence import attach_assembly_evidence
 from txnova.config import TxNovaConfig, resolve_hexamer_table
 from txnova.errors import TxNovaError
-from txnova.assembly_evidence import attach_assembly_evidence
+from txnova.fold import fold_peptides
+from txnova.function import annotate_structures
 from txnova.gates import (
     CODING_COLUMNS,
     DE_COLUMNS,
@@ -19,11 +22,20 @@ from txnova.gates import (
     pick_representative_transcript,
     write_candidates,
 )
-from txnova.fold import fold_peptides
-from txnova.function import annotate_structures
+from txnova.gene_score import GENE_RANK_FILENAME, REPORT_N, top_rank_ids, write_gene_rank
+from txnova.leak import (
+    LEAK_FILENAME,
+    SHARED_FILENAME,
+    annotate_leak,
+    exclude_shared_from_finals,
+    write_shared,
+)
+from txnova.logging import get_logger
 from txnova.naming import label_candidate_file, load_gene_bodies
 from txnova.orphan import annotate_orphans
-from txnova.leak import LEAK_FILENAME, SHARED_FILENAME, annotate_leak, write_shared
+from txnova.preflight import require_ok, run_preflight, write_preflight_json
+from txnova.provenance import build_run_json, write_run_json
+from txnova.report import render_html, render_report, write_report
 from txnova.residual import (
     CLOSE_SAME_STRAND_NT,
     MAX_EXON_NT,
@@ -38,11 +50,6 @@ from txnova.residual import (
     write_residuals,
     write_universe_gtf,
 )
-from txnova.gene_score import GENE_RANK_FILENAME, REPORT_N, top_rank_ids, write_gene_rank
-from txnova.logging import get_logger
-from txnova.preflight import require_ok, run_preflight, write_preflight_json
-from txnova.provenance import build_run_json, write_run_json
-from txnova.report import render_html, render_report, write_report
 from txnova.samples import SampleRow, can_run_de, load_samples, samples_to_jsonable
 from txnova.staging import remove_orphan_staging
 from txnova.stamps import (
@@ -54,7 +61,6 @@ from txnova.stamps import (
     stamp_outputs,
     write_stamp,
 )
-from txnova.assemble import ASSEMBLER_VERSION, Assembler
 
 log = get_logger("txnova.orchestrator")
 
@@ -264,13 +270,17 @@ def _run_discovery(
             "min_samples": 2,
             "min_support": 2,
             "max_control_support": 0,
+            "fasta": str(cfg.genome.fasta),
         }
-        core.leak_scan(
+        leak_out = core.leak_scan(
             str(merged),
             payload,
             str(leak_path),
             json.dumps(leak_cfg),
         )
+        leak_dropped = int((leak_out or {}).get("dropped_fragments") or 0)
+        if leak_dropped:
+            log.info("leak dropped_fragments=%s (pending mates at BAM EOF)", leak_dropped)
         write_stamp(stamps / "leak.json", leak_scan_fp)
     else:
         log.info("stamp hit leak")
@@ -280,10 +290,11 @@ def _run_discovery(
     residual_gtfs = [cfg.genome.annotation]
     if cfg.genome.naming_annotation is not None:
         residual_gtfs.append(cfg.genome.naming_annotation)
+    fai_path = Path(str(cfg.genome.fasta) + ".fai")
     residual_fp = {
         **fp_base,
         "step": "residual",
-        "inputs": path_fingerprint([leak_path, *residual_gtfs]),
+        "inputs": path_fingerprint([leak_path, *residual_gtfs, fai_path]),
         "cfg": {
             "min_exon_nt": MIN_EXON_NT,
             "max_exon_nt": MAX_EXON_NT,
@@ -391,6 +402,7 @@ def _run_discovery(
     scfg_obj = {
         "strandedness": rows[0].strandedness,
         "min_mapq": cfg.quantify.min_mapq,
+        "require_unique_nh": cfg.quantify.require_unique_nh,
         "skip_duplicate": cfg.quantify.skip_duplicate,
         "discontinuity_window_bp": cfg.filters.discontinuity_window_bp,
         "discontinuity_valley_bp": cfg.filters.discontinuity_valley_bp,
@@ -425,19 +437,22 @@ def _run_discovery(
     unnamed_path = cand_dir / UNNAMED_FILENAME
     de_view = cand_dir / "candidates.de.tsv"
     cand_path = cand_dir / "candidates.tsv"
+    rmsk_path = Path(cfg.genome.rmsk_bed) if cfg.genome.rmsk_bed is not None else None
+    gates_inputs = [
+        class_tsv,
+        reps,
+        struct_tsv,
+        quant_dir / "locus_tpm.tsv",
+        quant_dir / "locus_counts.tsv",
+    ]
+    if rmsk_path is not None:
+        gates_inputs.append(rmsk_path)
     gates_fp = {
         **fp_base,
         "step": "gates",
         "engine": engine,
-        "inputs": path_fingerprint(
-            [
-                class_tsv,
-                reps,
-                struct_tsv,
-                quant_dir / "locus_tpm.tsv",
-                quant_dir / "locus_counts.tsv",
-            ]
-        ),
+        "inputs": path_fingerprint(gates_inputs),
+        "rmsk_bed": str(rmsk_path) if rmsk_path is not None else None,
         "cfg": cfg.filters.model_dump(mode="json", by_alias=True),
     }
     if not (
@@ -501,6 +516,8 @@ def _run_discovery(
         dest=shared_path,
     )
     _apply_naming(cfg, rows, [shared_path])
+    exclude_shared_from_finals(gates_path, shared_path, rows)
+    exclude_shared_from_finals(de_view, shared_path, rows)
 
     annotate_leak(
         leak_path,
@@ -508,6 +525,7 @@ def _run_discovery(
         unnamed=unnamed_path,
         candidates=de_view,
         shared=shared_path,
+        residual=residual_path,
     )
 
     if cfg.coding.enabled:
@@ -565,6 +583,7 @@ def _run_discovery(
             )
     else:
         _copy_candidate_view(coding_src, cand_path, rows)
+    exclude_shared_from_finals(cand_path, shared_path, rows)
 
     rank_path = cand_dir / GENE_RANK_FILENAME
     rank_inputs = [p for p in (unnamed_path, cand_path, cand_dir / "peptides.fa") if p.is_file()]
@@ -696,7 +715,7 @@ def _class_metrics(class_tsv: Path) -> tuple[int | None, int | None]:
     if not class_tsv.is_file():
         return None, None
     df = pd.read_csv(class_tsv, sep="\t")
-    n_tx = int(len(df))
+    n_tx = len(df)
     n_u = int((df["class"] == "u").sum()) if "class" in df.columns else None
     return n_tx, n_u
 

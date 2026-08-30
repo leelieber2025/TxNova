@@ -67,12 +67,12 @@ def _funnel(out: Path) -> list[dict[str, Any]]:
     cand = out / "candidates" / "candidates.tsv"
     if cls.is_file():
         df = pd.read_csv(cls, sep="\t")
-        rows.append({"label": "merged transcripts", "n": int(len(df))})
+        rows.append({"label": "merged transcripts", "n": len(df)})
         if "class" in df.columns:
             rows.append({"label": "class u transcripts", "n": int((df["class"] == "u").sum())})
     if loc.is_file():
         df = pd.read_csv(loc, sep="\t")
-        rows.append({"label": "merged loci", "n": int(len(df))})
+        rows.append({"label": "merged loci", "n": len(df)})
         if "all_u" in df.columns:
             rows.append(
                 {
@@ -139,7 +139,7 @@ def _funnel(out: Path) -> list[dict[str, Any]]:
         if rdf.empty:
             rows.append({"label": "residual splice loci", "n": 0})
         else:
-            n_all = int(len(rdf))
+            n_all = len(rdf)
             n_multi = int((rdf["n_junctions"] >= 2).sum()) if "n_junctions" in rdf.columns else 0
             n_geneish = 0
             n_col = "n_detected" if "n_detected" in rdf.columns else "treat_n_detected"
@@ -152,7 +152,7 @@ def _funnel(out: Path) -> list[dict[str, Any]]:
     if gr.is_file():
         gdf = _read_tsv(gr)
         rows.append(
-            {"label": "gene-like ranked (structure-pass)", "n": 0 if gdf.empty else int(len(gdf))}
+            {"label": "gene-like ranked (structure-pass)", "n": 0 if gdf.empty else len(gdf)}
         )
     return rows
 
@@ -190,7 +190,7 @@ def _leak_records(path: Path) -> tuple[list[str], list[dict[str, str]], int]:
     df = pd.read_csv(path, sep="\t")
     if df.empty:
         return [], [], 0
-    n = int(len(df))
+    n = len(df)
     sort_leak = "support_sum" if "support_sum" in df.columns else "treat_sum"
     if sort_leak in df.columns:
         df = df.sort_values(sort_leak, ascending=False, na_position="last")
@@ -228,7 +228,7 @@ def _residual_records(path: Path) -> tuple[list[str], list[dict[str, str]], int]
     df = _read_tsv(path)
     if df.empty:
         return [], [], 0
-    n = int(len(df))
+    n = len(df)
     sort_cols = [c for c in ("n_junctions", "treat_sum", "treat_n_detected") if c in df.columns]
     if sort_cols:
         df = df.sort_values(sort_cols, ascending=False, na_position="last")
@@ -266,7 +266,7 @@ def _gene_rank_records(
     df = _read_tsv(path)
     if df.empty:
         return [], [], 0
-    n = int(len(df))
+    n = len(df)
     if "gene_rank" in df.columns:
         df = df.sort_values("gene_rank", ascending=True)
     df = df.head(limit)
@@ -311,7 +311,7 @@ def _candidate_records(
     df = pd.read_csv(path, sep="\t")
     if df.empty:
         return [], [], 0
-    n = int(len(df))
+    n = len(df)
     if sort_col and sort_col in df.columns:
         df = df.sort_values(sort_col, ascending=False, na_position="last")
     if limit is not None:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -25,8 +25,8 @@ class GenomeConfig(_Strict):
     assembly: str = "GRCm39"
     # Optional comprehensive GTF (e.g. GENCODE M39) used only to name
     # class-u loci that the run annotation omitted. Not used for class u.
-    naming_annotation: Optional[Path] = None
-    rmsk_bed: Optional[Path] = None
+    naming_annotation: Path | None = None
+    rmsk_bed: Path | None = None
 
 
 class QuantifyConfig(_Strict):
@@ -47,13 +47,13 @@ class FiltersConfig(_Strict):
     discontinuity_valley_bp: int = Field(default=200, ge=1)
     discontinuity_valley_max_mean: float = Field(default=1.0, ge=0.0)
     discontinuity_ratio: float = Field(default=0.1, ge=0.0)
-    discontinuity_min_treat_samples: Optional[int] = Field(default=1, ge=1)
+    discontinuity_min_treat_samples: int | None = Field(default=1, ge=1)
     reject_bridging_junction: bool = True
     bridge_min_reads: int = Field(default=2, ge=1)
     transcript_min_nt: int = Field(default=100, ge=1)
     control_max_tpm: float = Field(default=0.5, ge=0.0)
     treat_detect_tpm: float = Field(default=0.1, ge=0.0)
-    treat_min_detected_replicates: int = Field(default=3, ge=1)
+    treat_min_detected_replicates: int = Field(default=2, ge=1)
     treat_median_tpm: float = Field(default=0.5, ge=0.0)
     max_rmsk_frac: float = Field(default=0.1, ge=0.0, le=1.0)
 
@@ -72,7 +72,7 @@ class CodingConfig(_Strict):
     require_orf: bool = False
     hexamer_coding_min: float = 0.0
     hexamer_noncoding_max: float = 0.0
-    hexamer_table: Optional[Path] = None
+    hexamer_table: Path | None = None
     fold: bool = True
     orphan: bool = True
 
@@ -200,6 +200,10 @@ def load_config(path: Path) -> TxNovaConfig:
         cfg.output_dir = (path.parent / cfg.output_dir).resolve()
     if cfg.coding.hexamer_table is not None and not cfg.coding.hexamer_table.is_absolute():
         cfg.coding.hexamer_table = (path.parent / cfg.coding.hexamer_table).resolve()
+    if cfg.genome.rmsk_bed is not None and not cfg.genome.rmsk_bed.is_absolute():
+        cfg.genome.rmsk_bed = (path.parent / cfg.genome.rmsk_bed).resolve()
+    if cfg.genome.rmsk_bed is not None and not cfg.genome.rmsk_bed.is_file():
+        raise TxNovaError(f"genome.rmsk_bed not found: {cfg.genome.rmsk_bed}")
     return apply_inferred_species(cfg)
 
 

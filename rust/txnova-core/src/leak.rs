@@ -4,7 +4,8 @@
 //! `cohort=cohort` is used when the sheet has no control samples.
 
 use crate::bam;
-use crate::coverage::{cigar_introns, inferred_strand, pass_read};
+use crate::coverage::{cigar_introns, inferred_strand, nh_is_unique, pass_read};
+use crate::fasta::FastaIndex;
 use crate::error::{CoreError, Result};
 use crate::gtf::{parse_gtf, write_tsv, GeneBody, Transcript};
 use crate::interval::{gap, overlaps};
@@ -54,6 +55,8 @@ struct LeakCfg {
     min_support: u64,
     #[serde(default = "d_max_ctrl")]
     max_control_support: u64,
+    #[serde(default)]
+    fasta: String,
 }
 
 fn d_mapq() -> u8 {
@@ -86,24 +89,6 @@ struct JuncKey {
     strand: char,
 }
 
-#[derive(Clone, Debug)]
-struct MergedHit {
-    locus_id: String,
-    class: String,
-}
-
-fn nh(rec: &Record) -> Option<i32> {
-    rec.aux(b"NH").ok().and_then(|a| match a {
-        rust_htslib::bam::record::Aux::U8(v) => Some(v as i32),
-        rust_htslib::bam::record::Aux::I8(v) => Some(v as i32),
-        rust_htslib::bam::record::Aux::U16(v) => Some(v as i32),
-        rust_htslib::bam::record::Aux::I16(v) => Some(v as i32),
-        rust_htslib::bam::record::Aux::U32(v) => Some(v as i32),
-        rust_htslib::bam::record::Aux::I32(v) => Some(v),
-        _ => None,
-    })
-}
-
 fn skip_dup(mode: &str, seen: bool) -> bool {
     match mode {
         "always" => true,
@@ -127,22 +112,90 @@ fn tid_names(header: &rust_htslib::bam::HeaderView) -> HashMap<i32, String> {
         .collect()
 }
 
+fn aux_strand(rec: &Record) -> Option<char> {
+    use rust_htslib::bam::record::Aux;
+    for tag in [b"XS".as_slice(), b"ts".as_slice()] {
+        let Ok(a) = rec.aux(tag) else { continue };
+        let c = match a {
+            Aux::I8(v) => v as u8 as char,
+            Aux::U8(v) => v as char,
+            Aux::String(s) => {
+                let bytes = s.as_bytes();
+                if bytes.is_empty() {
+                    continue;
+                }
+                bytes[0] as char
+            }
+            _ => continue,
+        };
+        if c == '+' || c == '-' {
+            return Some(c);
+        }
+    }
+    None
+}
+
+fn motif_call(fa: Option<&FastaIndex>, chrom: &str, start: u64, end: u64) -> (bool, bool) {
+    let Some(fa) = fa else {
+        return (false, false);
+    };
+    if end < start + 3 {
+        return (false, false);
+    }
+    let plus = match (
+        fa.dinuc_tx(chrom, start, true),
+        fa.dinuc_tx(chrom, end - 1, true),
+    ) {
+        (Ok(d), Ok(a)) => crate::splice::is_canonical(&d, &a),
+        _ => false,
+    };
+    let minus = match (
+        fa.dinuc_tx(chrom, end - 1, false),
+        fa.dinuc_tx(chrom, start, false),
+    ) {
+        (Ok(d), Ok(a)) => crate::splice::is_canonical(&d, &a),
+        _ => false,
+    };
+    (plus, minus)
+}
+
+fn junction_strand(
+    rec: &Record,
+    strandedness: &str,
+    fa: Option<&FastaIndex>,
+    chrom: &str,
+    start: u64,
+    end: u64,
+) -> char {
+    if let Some(s) = inferred_strand(rec, strandedness) {
+        return s;
+    }
+    let (plus, minus) = motif_call(fa, chrom, start, end);
+    match (plus, minus) {
+        (true, false) => '+',
+        (false, true) => '-',
+        (true, true) => aux_strand(rec).unwrap_or('+'),
+        (false, false) => aux_strand(rec).unwrap_or('.'),
+    }
+}
+
 fn add_introns(
     rec: &Record,
     names: &HashMap<i32, String>,
     strandedness: &str,
+    fa: Option<&FastaIndex>,
     counts: &mut HashMap<JuncKey, u64>,
 ) {
     let Some(chrom) = names.get(&rec.tid()) else {
         return;
     };
     let chrom = chrom.clone();
-    let strand = inferred_strand(rec, strandedness).unwrap_or('.');
     let mut seen = HashSet::new();
     for (s, e) in cigar_introns(rec) {
         if !seen.insert((s, e)) {
             continue;
         }
+        let strand = junction_strand(rec, strandedness, fa, &chrom, s, e);
         *counts
             .entry(JuncKey {
                 chrom: chrom.clone(),
@@ -154,20 +207,25 @@ fn add_introns(
     }
 }
 
-fn census_one_sample(sample: &SampleIn, cfg: &LeakCfg) -> Result<HashMap<JuncKey, u64>> {
+fn census_one_sample(
+    sample: &SampleIn,
+    cfg: &LeakCfg,
+    fa: Option<&FastaIndex>,
+) -> Result<(HashMap<JuncKey, u64>, u64)> {
     let mut reader = bam::open_sequential(Path::new(&sample.bam))?;
     let names = tid_names(reader.header());
     let skip = skip_dup(&cfg.skip_duplicate, sample.dup_flag_seen);
     let mut pending: HashMap<Vec<u8>, Record> = HashMap::new();
     let mut counts: HashMap<JuncKey, u64> = HashMap::new();
     let mut last_tid = i32::MIN;
+    let mut n_pending_drop = 0u64;
 
     for rec in reader.records() {
         let rec = rec.map_err(|e| CoreError::fail(format!("BAM read: {e}")))?;
         if !pass_read(&rec, cfg.min_mapq, skip) {
             continue;
         }
-        if cfg.require_unique_nh && nh(&rec).unwrap_or(0) != 1 {
+        if !nh_is_unique(&rec, cfg.require_unique_nh) {
             continue;
         }
         let paired = rec.is_paired();
@@ -178,8 +236,8 @@ fn census_one_sample(sample: &SampleIn, cfg: &LeakCfg) -> Result<HashMap<JuncKey
             let qn = rec.qname().to_vec();
             if let Some(mate) = pending.remove(&qn) {
                 let mut frag: HashMap<JuncKey, u64> = HashMap::new();
-                add_introns(&rec, &names, &cfg.strandedness, &mut frag);
-                add_introns(&mate, &names, &cfg.strandedness, &mut frag);
+                add_introns(&rec, &names, &cfg.strandedness, fa, &mut frag);
+                add_introns(&mate, &names, &cfg.strandedness, fa, &mut frag);
                 for k in frag.into_keys() {
                     *counts.entry(k).or_insert(0) += 1;
                 }
@@ -200,54 +258,29 @@ fn census_one_sample(sample: &SampleIn, cfg: &LeakCfg) -> Result<HashMap<JuncKey
                         ranked.sort_by(|a, b| (a.0, a.1, &a.2).cmp(&(b.0, b.1, &b.2)));
                         for (_, _, k) in ranked.into_iter().take(drop_n) {
                             pending.remove(&k);
+                            n_pending_drop += 1;
                         }
                     }
                 }
                 pending.insert(qn, rec);
             }
         } else {
-            add_introns(&rec, &names, &cfg.strandedness, &mut counts);
+            add_introns(&rec, &names, &cfg.strandedness, fa, &mut counts);
         }
     }
-    Ok(counts)
+    n_pending_drop += pending.len() as u64;
+    Ok((counts, n_pending_drop))
 }
 
-fn merged_introns(transcripts: &[Transcript]) -> HashMap<(String, u64, u64, char), Vec<MergedHit>> {
-    let mut out: HashMap<(String, u64, u64, char), Vec<MergedHit>> = HashMap::new();
+fn merged_introns(transcripts: &[Transcript]) -> HashSet<(String, u64, u64, char)> {
+    let mut out: HashSet<(String, u64, u64, char)> = HashSet::new();
     for t in transcripts {
         // merged.gtf is the annotation. Every intron here is known.
         for (s, e) in crate::coverage::transcript_introns(t) {
-            out.entry((t.chrom.clone(), s, e, t.strand))
-                .or_default()
-                .push(MergedHit {
-                    locus_id: t.gene_id.clone(),
-                    class: "overlap".into(),
-                });
+            out.insert((t.chrom.clone(), s, e, t.strand));
         }
     }
     out
-}
-
-fn status_of(hits: &[MergedHit]) -> (&'static str, String, String) {
-    if hits.is_empty() {
-        return ("unassembled", String::new(), String::new());
-    }
-    let all_u = hits.iter().all(|h| h.class == "u");
-    let status = if all_u {
-        "assembled_u"
-    } else {
-        "assembled_other"
-    };
-    let locus = hits[0].locus_id.clone();
-    let class = if all_u {
-        "u".into()
-    } else {
-        hits.iter()
-            .find(|h| h.class != "u")
-            .map(|h| h.class.clone())
-            .unwrap_or_else(|| hits[0].class.clone())
-    };
-    (status, locus, class)
 }
 
 fn nearest_gene(
@@ -313,20 +346,33 @@ pub fn leak_scan(
     samples_json: &str,
     out_tsv: &str,
     cfg_json: &str,
-) -> Result<usize> {
+) -> Result<(usize, u64)> {
     let cfg: LeakCfg = serde_json::from_str(cfg_json)?;
     let samples: SamplesJson = serde_json::from_str(samples_json)?;
     if samples.samples.is_empty() {
         write_tsv(Path::new(out_tsv), &["chrom"], &[])?;
-        return Ok(0);
+        return Ok((0, 0));
     }
     let merged = parse_gtf(Path::new(merged_gtf))?;
     let intron_ix = merged_introns(&merged.transcripts);
     let unstranded = cfg.strandedness == "unstranded";
+    let fa = if cfg.fasta.is_empty() {
+        None
+    } else {
+        Some(FastaIndex::open(Path::new(&cfg.fasta))?)
+    };
 
-    let per_sample = sys_mem::run_bam_jobs(cfg.threads, samples.samples.len(), |si| {
-        census_one_sample(&samples.samples[si], &cfg)
+    let raw = sys_mem::run_bam_jobs(cfg.threads, samples.samples.len(), |si| {
+        census_one_sample(&samples.samples[si], &cfg, fa.as_ref())
     })?;
+    let mut n_pending_drop = 0u64;
+    let per_sample: Vec<_> = raw
+        .into_iter()
+        .map(|(m, d)| {
+            n_pending_drop += d;
+            m
+        })
+        .collect();
 
     let mut keys: HashSet<JuncKey> = HashSet::new();
     for m in &per_sample {
@@ -372,32 +418,18 @@ pub fn leak_scan(
         } else {
             "shared"
         };
-        let hits = intron_ix
-            .get(&(key.chrom.clone(), key.start, key.end, key.strand))
-            .cloned()
-            .or_else(|| {
-                if unstranded || key.strand == '.' {
-                    let mut acc = Vec::new();
-                    for st in ['+', '-'] {
-                        if let Some(h) = intron_ix.get(&(key.chrom.clone(), key.start, key.end, st))
-                        {
-                            acc.extend(h.iter().cloned());
-                        }
-                    }
-                    if acc.is_empty() {
-                        None
-                    } else {
-                        Some(acc)
-                    }
-                } else {
-                    None
-                }
-            })
-            .unwrap_or_default();
-        let (status, locus, class) = status_of(&hits);
-        if status == "assembled_other" {
+        let known = intron_ix.contains(&(key.chrom.clone(), key.start, key.end, key.strand))
+            || ((unstranded || key.strand == '.')
+                && ['+', '-'].iter().any(|&st| {
+                    intron_ix.contains(&(key.chrom.clone(), key.start, key.end, st))
+                }));
+        // Annotation intron => omit. Harvest keeps unassembled N only.
+        if known {
             continue;
         }
+        let status = "unassembled";
+        let locus = String::new();
+        let class = String::new();
         let (ov, gid, gname, dist, gstrand) = nearest_gene(
             &key.chrom,
             key.start,
@@ -461,36 +493,12 @@ pub fn leak_scan(
     }
     let header_refs: Vec<&str> = header.iter().map(|s| s.as_str()).collect();
     write_tsv(Path::new(out_tsv), &header_refs, &rows)?;
-    Ok(rows.len())
+    Ok((rows.len(), n_pending_drop))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn status_unassembled_and_u() {
-        assert_eq!(status_of(&[]).0, "unassembled");
-        let u = [MergedHit {
-            locus_id: "MSTRG.1".into(),
-            class: "u".into(),
-        }];
-        let (st, loc, cl) = status_of(&u);
-        assert_eq!(st, "assembled_u");
-        assert_eq!(loc, "MSTRG.1");
-        assert_eq!(cl, "u");
-        let mixed = [
-            MergedHit {
-                locus_id: "MSTRG.1".into(),
-                class: "u".into(),
-            },
-            MergedHit {
-                locus_id: "ENSG".into(),
-                class: "overlap".into(),
-            },
-        ];
-        assert_eq!(status_of(&mixed).0, "assembled_other");
-    }
 
     fn gb(chrom: &str, strand: char, start: u64, end: u64, name: &str) -> GeneBody {
         GeneBody {

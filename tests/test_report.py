@@ -3,12 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import yaml
-from typer.testing import CliRunner
-
 from txnova.cli import app
 from txnova.config import load_config
 from txnova.report import render_report
 from txnova.samples import load_samples
+from typer.testing import CliRunner
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 

@@ -5,7 +5,7 @@ use crate::fasta::FastaIndex;
 use crate::gtf::Transcript;
 
 pub fn is_canonical(donor: &[u8; 2], acceptor: &[u8; 2]) -> bool {
-    matches!((donor, acceptor), (b"GT", b"AG") | (b"GC", b"AG"))
+    matches!((donor, acceptor), (b"GT", b"AG") | (b"GC", b"AG") | (b"AT", b"AC"))
 }
 
 /// For an unstranded transcript (GTF strand `.`), decide whether the plus
@@ -14,7 +14,7 @@ pub fn is_canonical(donor: &[u8; 2], acceptor: &[u8; 2]) -> bool {
 /// The library carries no strand information, so `t.strand` cannot be
 /// trusted; the intron donor/acceptor motif can. Score every intron in
 /// both directions and keep whichever direction has more canonical
-/// (GT-AG/GC-AG) hits, ties and no-evidence loci defaulting to plus.
+/// (GT-AG/GC-AG/AT-AC) hits, ties and no-evidence loci defaulting to plus.
 /// Both the canonical-splice gate (below) and the spliced-sequence /
 /// ORF scan (`orf::splice_seq`) call this so a locus gets one consistent
 /// strand call rather than being silently read as plus by each in turn.
@@ -118,4 +118,17 @@ pub fn splice_features(
         donors.len(),
         structure_error,
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_canonical;
+
+    #[test]
+    fn canonical_includes_atac() {
+        assert!(is_canonical(b"GT", b"AG"));
+        assert!(is_canonical(b"GC", b"AG"));
+        assert!(is_canonical(b"AT", b"AC"));
+        assert!(!is_canonical(b"AT", b"AG"));
+    }
 }

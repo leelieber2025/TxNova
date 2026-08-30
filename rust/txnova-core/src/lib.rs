@@ -125,8 +125,12 @@ fn leak_scan(
     out_tsv: &str,
     cfg_json: &str,
 ) -> PyResult<Py<PyDict>> {
-    let n = leak::leak_scan(merged_gtf, samples_json, out_tsv, cfg_json).map_err(map_err)?;
-    json_dict(py, serde_json::json!({ "n_leak": n }))
+    let (n, dropped_fragments) =
+        leak::leak_scan(merged_gtf, samples_json, out_tsv, cfg_json).map_err(map_err)?;
+    json_dict(
+        py,
+        serde_json::json!({ "n_leak": n, "dropped_fragments": dropped_fragments }),
+    )
 }
 
 #[pyfunction]

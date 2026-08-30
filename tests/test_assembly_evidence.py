@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
-
 from txnova.assembly_evidence import attach_assembly_evidence
 from txnova.samples import SampleRow
 

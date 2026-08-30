@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 import pandas as pd
-
 from txnova.config import packaged_hexamer_table
 
 
@@ -78,9 +77,9 @@ def test_hexamer_llr_known_vs_noncoding(tmp_path: Path) -> None:
     assert int(by.loc["Lcod", "longest_orf_aa"]) >= 50
     assert str(by.loc["Lcod", "orf_complete"]).lower() == "true"
     assert float(by.loc["Lcod", "coding_score"]) > 0
-    assert by.loc["Lcod", "coding_label"] == "hexamer_positive"
+    assert by.loc["Lcod", "coding_label"] == "coding"
     assert float(by.loc["Lnc", "coding_score"]) < 0
-    assert by.loc["Lnc", "coding_label"] == "hexamer_negative"
+    assert by.loc["Lnc", "coding_label"] == "noncoding"
     assert pd.notna(by.loc["Lcod", "fickett_score"])
 
 
@@ -137,6 +136,37 @@ def test_short_orf_is_reported_not_zero(tmp_path: Path) -> None:
         json.dumps(
             {
                 "min_orf_aa": 50,
+                "hexamer_table": str(packaged_hexamer_table()),
+                "hexamer_coding_min": 0.0,
+                "hexamer_noncoding_max": 0.0,
+            }
+        ),
+    )
+    df = pd.read_csv(orfs, sep="\t")
+    assert int(df.iloc[0]["longest_orf_aa"]) == 0
+    assert df.iloc[0]["coding_label"] == "no_orf"
+
+
+def test_min_orf_aa_is_reporting_floor(tmp_path: Path) -> None:
+    from txnova import _core
+
+    seq = "ATG" + ("GAA" * 19) + "TAA" + "C" * 40
+    fa = tmp_path / "g.fa"
+    _write_fasta(fa, "chr1", seq)
+    gtf = tmp_path / "m.gtf"
+    gtf.write_text(_gtf("chr1", "T1", "L1", len(seq)), encoding="utf-8")
+    reps = tmp_path / "reps.tsv"
+    reps.write_text("locus_id\ttranscript_id\nL1\tT1\n", encoding="utf-8")
+    orfs = tmp_path / "orfs.tsv"
+    _core.scan_orfs(
+        str(fa),
+        str(gtf),
+        str(reps),
+        str(orfs),
+        str(tmp_path / "pep.fa"),
+        json.dumps(
+            {
+                "min_orf_aa": 10,
                 "hexamer_table": str(packaged_hexamer_table()),
                 "hexamer_coding_min": 0.0,
                 "hexamer_noncoding_max": 0.0,

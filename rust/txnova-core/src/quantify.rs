@@ -1,5 +1,5 @@
 use crate::bam;
-use crate::coverage::{aligned_blocks, inferred_strand, pass_read};
+use crate::coverage::{aligned_blocks, cigar_introns, inferred_strand, nh_is_unique, pass_read, transcript_introns};
 use crate::error::{CoreError, Result};
 use crate::gtf::{parse_gtf, write_tsv, Transcript};
 use crate::interval::{Interval, IvIndex};
@@ -64,18 +64,6 @@ struct TxMeta {
     length: u64,
 }
 
-fn nh(rec: &Record) -> Option<i32> {
-    rec.aux(b"NH").ok().and_then(|a| match a {
-        rust_htslib::bam::record::Aux::U8(v) => Some(v as i32),
-        rust_htslib::bam::record::Aux::I8(v) => Some(v as i32),
-        rust_htslib::bam::record::Aux::U16(v) => Some(v as i32),
-        rust_htslib::bam::record::Aux::I16(v) => Some(v as i32),
-        rust_htslib::bam::record::Aux::U32(v) => Some(v as i32),
-        rust_htslib::bam::record::Aux::I32(v) => Some(v),
-        _ => None,
-    })
-}
-
 fn compatible_hits(
     rec: &Record,
     idx: &HashMap<i32, &IvIndex<ExonHit>>,
@@ -101,18 +89,44 @@ fn compatible_hits(
     out
 }
 
+fn gene_introns(transcripts: &[Transcript]) -> HashMap<String, HashSet<(u64, u64)>> {
+    let mut out: HashMap<String, HashSet<(u64, u64)>> = HashMap::new();
+    for t in transcripts {
+        let slot = out.entry(t.gene_id.clone()).or_default();
+        for iv in transcript_introns(t) {
+            slot.insert(iv);
+        }
+    }
+    out
+}
+
 fn count_fragment(
     hits: &HashSet<(String, String)>,
+    ns: &[(u64, u64)],
+    gene_introns: &HashMap<String, HashSet<(u64, u64)>>,
     locus_c: &mut HashMap<String, f64>,
     tx_c: &mut HashMap<String, f64>,
 ) {
-    let genes: HashSet<&str> = hits.iter().map(|(g, _)| g.as_str()).collect();
+    let mut filtered: HashSet<(String, String)> = HashSet::new();
+    for (g, tid) in hits {
+        match gene_introns.get(g) {
+            Some(introns) if !introns.is_empty() => {
+                if ns.iter().any(|j| introns.contains(j)) {
+                    filtered.insert((g.clone(), tid.clone()));
+                }
+            }
+            _ => {
+                filtered.insert((g.clone(), tid.clone()));
+            }
+        }
+    }
+    let genes: HashSet<&str> = filtered.iter().map(|(g, _)| g.as_str()).collect();
     if genes.len() != 1 {
         return;
     }
     let gid = genes.iter().next().unwrap().to_string();
     *locus_c.entry(gid.clone()).or_insert(0.0) += 1.0;
-    let txs: Vec<&str> = hits
+    let txs: Vec<&str> = filtered
         .iter()
         .filter(|(g, _)| g == &gid)
         .map(|(_, t)| t.as_str())
@@ -177,6 +191,7 @@ fn quantify_one_sample(
     sample: &SampleIn,
     cfg: &QuantCfg,
     by_chrom: &HashMap<String, IvIndex<ExonHit>>,
+    gene_introns_ix: &HashMap<String, HashSet<(u64, u64)>>,
 ) -> Result<(HashMap<String, f64>, HashMap<String, f64>, u64)> {
     let mut reader = bam::open_sequential(Path::new(&sample.bam))?;
     let idx = tid_index(reader.header(), by_chrom);
@@ -192,7 +207,7 @@ fn quantify_one_sample(
         if !pass_read(&rec, cfg.min_mapq, skip) {
             continue;
         }
-        if cfg.require_unique_nh && nh(&rec).unwrap_or(0) != 1 {
+        if !nh_is_unique(&rec, cfg.require_unique_nh) {
             continue;
         }
         let paired = rec.is_paired();
@@ -204,7 +219,9 @@ fn quantify_one_sample(
             if let Some(mate) = pending.remove(&qn) {
                 let mut hits = compatible_hits(&rec, &idx, rec.tid(), &cfg.strandedness);
                 hits.extend(compatible_hits(&mate, &idx, mate.tid(), &cfg.strandedness));
-                count_fragment(&hits, &mut locus_c, &mut tx_c);
+                let mut ns = cigar_introns(&rec);
+                ns.extend(cigar_introns(&mate));
+                count_fragment(&hits, &ns, gene_introns_ix, &mut locus_c, &mut tx_c);
             } else if rec.tid() == rec.mtid() && rec.mpos() < rec.pos() {
                 // Mate is already behind the cursor and was never stored
                 // (failed filters). Do not keep this end forever.
@@ -232,9 +249,11 @@ fn quantify_one_sample(
             }
         } else {
             let hits = compatible_hits(&rec, &idx, rec.tid(), &cfg.strandedness);
-            count_fragment(&hits, &mut locus_c, &mut tx_c);
+            let ns = cigar_introns(&rec);
+            count_fragment(&hits, &ns, gene_introns_ix, &mut locus_c, &mut tx_c);
         }
     }
+    n_pending_drop += pending.len() as u64;
 
     Ok((locus_c, tx_c, n_pending_drop))
 }
@@ -283,8 +302,9 @@ pub fn quantify_gtf(
     let mut n_pending_drop_total = 0u64;
     if !samples.samples.is_empty() {
         let by_chrom = build_exon_index_by_chrom(&parsed.transcripts);
+        let gene_introns_ix = gene_introns(&parsed.transcripts);
         let results = sys_mem::run_bam_jobs(cfg.threads, samples.samples.len(), |si| {
-            quantify_one_sample(&samples.samples[si], &cfg, &by_chrom)
+            quantify_one_sample(&samples.samples[si], &cfg, &by_chrom, &gene_introns_ix)
         })?;
         for (si, slot) in results.into_iter().enumerate() {
             let (locus_c, tx_c, drops) = slot;

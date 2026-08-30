@@ -14,15 +14,14 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
-from txnova import __version__
+from txnova import USER_AGENT
 from txnova.errors import TxNovaError
 from txnova.logging import get_logger
 
 log = get_logger("txnova.fold")
-_USER_AGENT = f"txnova/{__version__}"
 
 MOUSE_TAXON = 10090
 HUMAN_TAXON = 9606
@@ -97,7 +96,7 @@ def mean_ca_b_factor(pdb_text: str) -> float | None:
 
 
 def _http_get(url: str, timeout: int = 60) -> bytes:
-    req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     last: Exception | None = None
     for attempt in range(3):
         try:
@@ -118,7 +117,7 @@ def _http_post(url: str, data: bytes, timeout: int = 300) -> bytes:
             url,
             data=data,
             method="POST",
-            headers={"User-Agent": _USER_AGENT, "Content-Type": "text/plain"},
+            headers={"User-Agent": USER_AGENT, "Content-Type": "text/plain"},
         )
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:

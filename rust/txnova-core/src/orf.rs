@@ -150,7 +150,6 @@ pub fn scan_orfs(
     if cfg.hexamer_table.is_empty() {
         return Err(CoreError::fail("coding.hexamer_table is empty"));
     }
-    let _ = cfg.min_orf_aa;
     let hex = HexamerTable::load(Path::new(&cfg.hexamer_table))?;
     let fa = FastaIndex::open(Path::new(fasta))?;
     let parsed = parse_gtf(Path::new(merged_gtf))?;
@@ -182,11 +181,22 @@ pub fn scan_orfs(
     let mut n_ok = 0usize;
     for (loc, tid) in reps {
         let Some(t) = by_tid.get(&tid) else { continue };
-        let seq = splice_seq(t, &fa)?;
-        // Report the real longest ATG… ORF. min_orf_aa is the require_orf
-        // filter in Python, not a reporting floor — short residual models
-        // otherwise show 0 and hide hexamer/Fickett.
-        let hit = longest_orf(&seq, 1);
+        let seq = match splice_seq(t, &fa) {
+            Ok(s) => s,
+            Err(_) => {
+                rows.push(vec![
+                    loc.clone(),
+                    tid.clone(),
+                    "0".into(),
+                    "false".into(),
+                    "NA".into(),
+                    "NA".into(),
+                    "no_orf".into(),
+                ]);
+                continue;
+            }
+        };
+        let hit = longest_orf(&seq, cfg.min_orf_aa.max(1));
         let (n_aa, complete, score, fickett, label) = match &hit {
             Some(h) => {
                 let score = hex.score(&h.nt);

@@ -31,6 +31,8 @@ struct StructCfg {
     strandedness: String,
     #[serde(default = "d_mapq")]
     min_mapq: u8,
+    #[serde(default)]
+    require_unique_nh: bool,
     #[serde(default = "d_skip")]
     skip_duplicate: String,
     #[serde(default = "d_win")]
@@ -178,7 +180,16 @@ pub fn structure_scan(
         let uns_t = uns || t.strand == '.';
         let chrom_genes = genes_by_chrom.get(&t.chrom).unwrap_or(&empty_genes);
         let (near_same, near_any) = nearest_genes(&t, chrom_genes, uns_t);
-        let (donors, accs, frac, n_introns, structure_error) = splice_features(&t, &fa)?;
+        let (donors, accs, frac, n_introns, structure_error) = match splice_features(&t, &fa) {
+            Ok(v) => v,
+            Err(e) => (
+                String::new(),
+                String::new(),
+                0.0,
+                crate::coverage::transcript_introns(&t).len(),
+                Some(e.to_string()),
+            ),
+        };
         let struct_err = structure_error.unwrap_or_default();
         let nearest_for_gap = if uns_t {
             near_any.clone()
@@ -314,6 +325,7 @@ fn scan_one_sample(
             &cfg.strandedness,
             cfg.min_mapq,
             skip,
+            cfg.require_unique_nh,
         )?;
         sample_rows.push(feature_row(p, &s.sample_id, Some(feat)));
     }

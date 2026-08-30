@@ -163,22 +163,7 @@ fn is_bridge(
     false
 }
 
-fn unique_key(rec: &Record) -> Option<Vec<u8>> {
-    match nh(rec) {
-        Some(1) => Some(rec.qname().to_vec()),
-        Some(_) => None,
-        None => {
-            let mut k = rec.qname().to_vec();
-            k.push(0);
-            k.extend(rec.pos().to_le_bytes());
-            k.push(0);
-            k.extend(format!("{}", rec.cigar()).into_bytes());
-            Some(k)
-        }
-    }
-}
-
-fn nh(rec: &Record) -> Option<i32> {
+pub fn nh(rec: &Record) -> Option<i32> {
     rec.aux(b"NH").ok().and_then(|a| match a {
         rust_htslib::bam::record::Aux::U8(v) => Some(v as i32),
         rust_htslib::bam::record::Aux::I8(v) => Some(v as i32),
@@ -188,6 +173,34 @@ fn nh(rec: &Record) -> Option<i32> {
         rust_htslib::bam::record::Aux::I32(v) => Some(v),
         _ => None,
     })
+}
+
+/// Missing NH is unique (STAR/HISAT2 primary). Never treat missing as 0.
+pub fn nh_is_unique(rec: &Record, require_unique_nh: bool) -> bool {
+    if !require_unique_nh {
+        return true;
+    }
+    match nh(rec) {
+        None | Some(1) => true,
+        Some(_) => false,
+    }
+}
+
+fn unique_key(rec: &Record, require_unique_nh: bool) -> Option<Vec<u8>> {
+    if !nh_is_unique(rec, require_unique_nh) {
+        return None;
+    }
+    match nh(rec) {
+        Some(1) => Some(rec.qname().to_vec()),
+        _ => {
+            let mut k = rec.qname().to_vec();
+            k.push(0);
+            k.extend(rec.pos().to_le_bytes());
+            k.push(0);
+            k.extend(format!("{}", rec.cigar()).into_bytes());
+            Some(k)
+        }
+    }
 }
 
 pub fn scan_locus_sample(
@@ -202,6 +215,7 @@ pub fn scan_locus_sample(
     strandedness: &str,
     min_mapq: u8,
     skip_dup: bool,
+    require_unique_nh: bool,
 ) -> Result<ValleyFeat> {
     let tid = reader
         .header()
@@ -252,7 +266,7 @@ pub fn scan_locus_sample(
         if !strand_ok(&rec, strandedness, t.strand) {
             continue;
         }
-        if let Some(key) = unique_key(&rec) {
+        if let Some(key) = unique_key(&rec, require_unique_nh) {
             let ns = cigar_introns(&rec);
             for (i, iv) in introns.iter().enumerate() {
                 if ns.iter().any(|j| j == iv) {

@@ -3,11 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import yaml
-
+from txnova.assemble import Assembler
 from txnova.config import load_config
 from txnova.orchestrator import run_pipeline
 from txnova.stamps import stamp_outputs
-from txnova.assemble import Assembler
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
@@ -74,6 +73,18 @@ def test_run_with_mock_assembler(tmp_path: Path) -> None:
     assert (cfg.output_dir / "report" / "report.html").is_file()
     leftover = list(cfg.output_dir.glob(".txnova_staging_*"))
     assert leftover == []
+    import pandas as pd
+
+    final = pd.read_csv(cfg.output_dir / "candidates" / "candidates.tsv", sep="\t")
+    shared_p = cfg.output_dir / "candidates" / "candidates.shared.tsv"
+    if shared_p.is_file() and not final.empty and "locus_id" in final.columns:
+        shared = pd.read_csv(shared_p, sep="\t")
+        if not shared.empty and "locus_id" in shared.columns:
+            assert set(final["locus_id"].astype(str)).isdisjoint(
+                set(shared["locus_id"].astype(str))
+            )
+    src = Path(__file__).resolve().parents[1] / "python" / "txnova" / "orchestrator.py"
+    assert "exclude_shared_from_finals(" in src.read_text(encoding="utf-8")
 
 
 def test_second_run_same_outdir_is_idempotent(tmp_path: Path) -> None:

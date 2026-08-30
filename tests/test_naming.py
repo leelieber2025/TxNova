@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pandas as pd
 from txnova.naming import (
     NAMING_ANNOTATED,
     NAMING_NONE,
@@ -11,7 +12,6 @@ from txnova.naming import (
     classify_locus,
     load_gene_bodies,
 )
-import pandas as pd
 
 
 def test_chrom_key() -> None:

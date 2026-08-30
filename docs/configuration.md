@@ -6,8 +6,9 @@ and **unknown fields raise an error** rather than being silently ignored.
 this page explains what each one means and when you'd want to change it.
 
 Relative paths (`samples`, `genome.fasta`, `genome.annotation`,
-`genome.naming_annotation`, `coding.hexamer_table`) resolve relative to the
-directory the config file is in, not your current working directory.
+`genome.naming_annotation`, `genome.rmsk_bed`, `coding.hexamer_table`) resolve
+relative to the directory the config file is in, not your current working
+directory. A configured `genome.rmsk_bed` that is missing is a hard error.
 
 ## Top level
 
@@ -33,7 +34,7 @@ directory the config file is in, not your current working directory.
 | `annotation_version` | string | `M39` | Provenance metadata, printed in the report. |
 | `assembly` | string | `GRCm39` | UCSC conservation (`GRCm39`/`mm39` or `GRCh38`/`hg38`). If omitted and the GTF is human, set to `GRCh38`. |
 | `naming_annotation` | path or `null` | `null` | Optional **second** GTF. It names class-`u` loci that `annotation` left blank (`named_gene_name` / `named_overlap`), and residual harvest unions it with `annotation` for the 200 nt same-strand knife (intron span). It does not change class `u`. The 1 kb structure gate uses the run `annotation`. |
-| `rmsk_bed` | path or `null` | `null` | RepeatMasker BED (chrom start end name family). When set, `filters.max_rmsk_frac` is applied. |
+| `rmsk_bed` | path or `null` | `null` | RepeatMasker BED (chrom start end name family). When set, `filters.max_rmsk_frac` is applied. Contig names are matched via `chrom_key` (`chr1` ≡ `1`). |
 
 ## `quantify`
 
@@ -58,7 +59,7 @@ DE and coding, which are separate stages).
 |---|---|---|---|
 | `class` | `u` (fixed) | `u` | Only `u` (fully intergenic) is supported. |
 | `min_exons` | int ≥ 1 | `1` | Minimum exon count. `1` allows intronless loci through; the splice-canonicity gate below only applies when a locus actually has introns. |
-| `require_canonical_splice` | bool | `true` | Reject loci whose scored introns are not **GT-AG or GC-AG** (transcript strand). Those are the U2-type pair; AT-AC (U12) is not canonical here. |
+| `require_canonical_splice` | bool | `true` | Reject loci whose scored introns are not **GT-AG, GC-AG, or AT-AC** (transcript strand). GT-AG/GC-AG are U2-type; AT-AC is the U12-type pair. |
 | `max_noncanonical_junction_fraction` | float [0, 1] | `0.0` | Fraction of a locus's junctions allowed to be non-canonical before it's rejected (with `require_canonical_splice: true`). `0.0` = zero tolerance. |
 | `min_nearest_same_strand_bp` | int ≥ 0 | `1000` | Minimum distance (bp) to the nearest same-strand annotated gene, measured on the **clipped residual locus**. Below this, a locus is treated as too close to be confidently intergenic. The default follows the ≥1 kb operational cutoff used for lincRNA catalogs, not typical gene–gene spacing (tens of kb). The 200 nt harvest knife is a separate cut and uses the intron span. |
 | `require_coverage_discontinuity` | bool | `true` | Require a real coverage gap (valley) between the locus and its neighbor, not just annotation-based distance — guards against a locus that's actually the UTR/readthrough of an adjacent gene. |
@@ -73,7 +74,7 @@ DE and coding, which are separate stages).
 | `control_max_tpm` | float ≥ 0 | `0.5` | Contrast only. Control **maximum** TPM must be **below** this for the **final** table. At or above → `candidates.unnamed.tsv`. Ignored when the sheet has no control+treat. |
 | `max_rmsk_frac` | float 0–1 | `0.1` | Drop a locus if RepeatMasker covers this fraction of spliced length. Applied only when `genome.rmsk_bed` is set. |
 | `treat_detect_tpm` | float ≥ 0 | `0.1` | Sample “detecting” the locus. Near the RNA-seq active/background floor. With a contrast, only treat samples count. |
-| `treat_min_detected_replicates` | int ≥ 1 | `3` | Contrast only. Treat samples that must clear `treat_detect_tpm` for a locus to enter the final table. Harvest recurrence stays $r_{min}=2$ on the whole cohort. |
+| `treat_min_detected_replicates` | int ≥ 1 | `2` | Contrast only. Treat samples that must clear `treat_detect_tpm` for a locus to enter the final table. Default 2 so a first 2-vs-2 run can fill `candidates.tsv`. Harvest recurrence stays $r_{min}=2$ on the whole cohort. Preflight fails if this exceeds `n_treat`. |
 | `treat_median_tpm` | float ≥ 0 | `0.5` | Contrast only. Treat median TPM. Half of the TPM 1 “on” line. |
 
 If your final table is empty, `control_max_tpm` / `treat_detect_tpm` /
@@ -110,7 +111,7 @@ gate-(and DE-)passing loci. Runs after `filters` and `de`.
 | `min_orf_aa` | int ≥ 1 | `50` | Minimum ORF length (aa) to report. Conventional small-ORF boundary; CPAT searches from 75 nt. |
 | `require_orf` | bool | `false` | If `true`, drop loci without a complete ORF of at least `min_orf_aa`. Off by default — many real intergenic loci are noncoding. |
 | `hexamer_coding_min` | float | `0.0` | Hexamer log-likelihood above which a locus is called `coding_label = coding`. Published CPAT cutoffs do not apply. |
-| `hexamer_noncoding_max` | float | `0.0` | Score at or below which a locus is called `noncoding`. Between `hexamer_noncoding_max` and `hexamer_coding_min` is ambiguous. |
+| `hexamer_noncoding_max` | float | `0.0` | Score at or below which a locus is called `noncoding`. Between `hexamer_noncoding_max` and `hexamer_coding_min` is `ambiguous`. No ORF at `min_orf_aa` is `no_orf`. |
 | `hexamer_table` | path or `null` | `null` | `null` uses the packaged CPAT table for the resolved species (`Mouse_Hexamer.tsv` or `Human_Hexamer.tsv`). |
 | `fold` | bool | `true` | Build 3D models for the **top 30** gene-like loci — AlphaFold DB for named loci, ESMFold for unnamed ones. **Requires internet access.** Network failures are recorded as warnings, not fatal. |
 | `orphan` | bool | `true` | Same top 30: UCSC conservation (phyloP/phastCons) and EBI HMMER/Pfam. **Requires internet access.** Same fail-soft behavior. |

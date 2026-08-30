@@ -74,6 +74,8 @@ filter.
 
 A locus can appear in unnamed and shared at once. It cannot appear in both
 the final table and unnamed (those two are split by the control TPM gate).
+The orchestrator also drops shared-harvest IDs from the final path, so
+`candidates.tsv ∩ candidates.shared.tsv = ∅`.
 `candidates.gates.tsv` / `candidates.de.tsv` are earlier snapshots of the
 **final** path only.
 
@@ -90,7 +92,7 @@ The final table — structure-pass residual loci. When the sheet has control and
 | `nearest_gene_id` / `nearest_gene_name` / `nearest_distance_bp` / `nearest_strand` | Nearest **same-strand** annotated gene of the residual **locus** (the interval the 1 kb structure gate uses). Unstranded loci use either-strand distance. |
 | `nearest_any_gene_id` / `nearest_any_gene_name` / `nearest_any_distance_bp` / `nearest_any_strand` | Nearest annotated gene on **either** strand. |
 | `named_gene_name` / `named_gene_id` / `named_gene_type` / `named_overlap` | Filled from `genome.naming_annotation` if configured; `named_overlap = none` means neither annotation could name it (these loci feed `orphan.tsv`). |
-| `canonical_splice_fraction` | Fraction of this locus's junctions that are GT-AG or GC-AG. |
+| `canonical_splice_fraction` | Fraction of this locus's junctions that are GT-AG, GC-AG, or AT-AC. |
 | `coverage_discontinuity` / `coverage_valley_mean` / `coverage_gap_mean` | Evidence for a real coverage gap between this locus and its neighbor. |
 | `control_max_tpm` / `treat_median_tpm` / `treat_n_detected` | Abundance gate inputs — see [`filters`](configuration.md#filters). |
 | `junction_support` / `junction_support_min` | BAM CIGAR `N`-based splice support. |
@@ -103,7 +105,7 @@ The final table — structure-pass residual loci. When the sheet has control and
 | `de_pass` | Boolean; whether the row is in the final table because of DE (mirrors `de_status`). |
 | `longest_orf_aa`, `orf_complete` | Longest ORF found and whether it has both start and stop codons. |
 | `coding_score`, `fickett_score` | Hexamer log-likelihood and Fickett score. Published CPAT cutoffs do not apply. |
-| `coding_label` | `coding` / `noncoding` / ambiguous, from `coding.hexamer_coding_min` / `hexamer_noncoding_max` in [`coding`](configuration.md#coding). |
+| `coding_label` | `coding` / `noncoding` / `ambiguous` / `no_orf`, from `coding.hexamer_coding_min` / `hexamer_noncoding_max` and the `min_orf_aa` reporting floor. |
 
 Per-sample columns (`<sample_id>_junction_support`, `<sample_id>_bridge_read_count`,
 `<sample_id>_tpm`, `<sample_id>_count`) are also included so you can inspect

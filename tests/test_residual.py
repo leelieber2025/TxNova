@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-import pandas as pd
-
 from pathlib import Path
 
+import pandas as pd
 from txnova.errors import TxNovaError
 from txnova.residual import (
     apply_terminal_extents,
     clip_terminals_from_genes,
     clip_to_contig,
     close_to_small_rna,
-    cluster_leak,
     cluster_junctions,
+    cluster_leak,
     exon_structure,
     merge_gene_bodies,
     overlaps_gene_body,

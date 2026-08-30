@@ -213,14 +213,12 @@ fn run_preflight_inner(
             _ => {}
         }
 
-        if !bam::is_coordinate_sorted(&text) {
-            let mut seq = match bam::open_sequential(bam_path) {
-                Ok(r) => r,
-                Err(e) => return fail_report(report, format!("sample {}: {e}", sample.sample_id)),
-            };
-            if let Err(e) = bam::check_coordinate_order_seq(&mut seq, SORT_SCAN) {
-                return fail_report(report, format!("sample {}: {e}", sample.sample_id));
-            }
+        let mut seq = match bam::open_sequential(bam_path) {
+            Ok(r) => r,
+            Err(e) => return fail_report(report, format!("sample {}: {e}", sample.sample_id)),
+        };
+        if let Err(e) = bam::check_coordinate_order_seq(&mut seq, SORT_SCAN) {
+            return fail_report(report, format!("sample {}: {e}", sample.sample_id));
         }
 
         let family = match bam::infer_aligner_family(&text) {

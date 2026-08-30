@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from txnova.errors import TxNovaError
 from txnova.samples import load_samples
 

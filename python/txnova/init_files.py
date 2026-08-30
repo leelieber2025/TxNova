@@ -42,7 +42,7 @@ filters:
   transcript_min_nt: 100
   control_max_tpm: 0.5
   treat_detect_tpm: 0.1
-  treat_min_detected_replicates: 3
+  treat_min_detected_replicates: 2
   treat_median_tpm: 0.5
   max_rmsk_frac: 0.1
 

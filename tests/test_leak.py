@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 import pandas as pd
-
 from txnova import _core
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -221,3 +220,66 @@ def test_exclude_shared_from_finals(tmp_path: Path) -> None:
     assert n == 1
     kept = [ln.split("\t", 1)[0] for ln in final.read_text().splitlines()[1:] if ln]
     assert kept == ["RSDL.1"]
+
+
+def _gtag_fasta(tmp: Path) -> Path:
+    src = (FIXTURES / "genome.fa").read_text()
+    header, seq = src.split("\n", 1)
+    seq = seq.replace("\n", "")
+    chars = list(seq)
+    # 1-based 451-452 is already GT on the ACGT repeat; force 498-499 = AG.
+    chars[497] = "A"
+    chars[498] = "G"
+    seq = "".join(chars)
+    fa = tmp / "g.fa"
+    fa.write_text(header.strip() + "\n" + seq + "\n", encoding="utf-8")
+    fa.with_suffix(".fa.fai").write_text("chr1\t1000\t6\t1000\t1001\n", encoding="utf-8")
+    return fa
+
+
+def test_unstranded_motif_assigns_plus_and_does_not_merge_minus(tmp_path: Path) -> None:
+    from txnova.residual import cluster_junctions
+
+    bam = FIXTURES / "junc_bridge.bam"
+    ctrl = FIXTURES / "ctrl_1.bam"
+    merged = tmp_path / "merged.gtf"
+    merged.write_text(
+        'chr1\tX\ttranscript\t10\t80\t.\t+\t.\tgene_id "ENSG1"; transcript_id "ENST1";\n'
+        'chr1\tX\texon\t10\t80\t.\t+\t.\tgene_id "ENSG1"; transcript_id "ENST1";\n',
+        encoding="utf-8",
+    )
+    fa = _gtag_fasta(tmp_path)
+    out = tmp_path / "leak.tsv"
+    payload = json.dumps(
+        {
+            "samples": [
+                {"sample_id": "c1", "bam": str(ctrl), "group": "control", "dup_flag_seen": False},
+                {"sample_id": "c2", "bam": str(ctrl), "group": "control", "dup_flag_seen": False},
+                {"sample_id": "t1", "bam": str(bam), "group": "treat", "dup_flag_seen": False},
+                {"sample_id": "t2", "bam": str(bam), "group": "treat", "dup_flag_seen": False},
+            ]
+        }
+    )
+    cfg = json.dumps(
+        {
+            "strandedness": "unstranded",
+            "min_mapq": 10,
+            "skip_duplicate": "never",
+            "library_layout": "single",
+            "threads": 1,
+            "min_samples": 2,
+            "min_support": 2,
+            "max_control_support": 0,
+            "fasta": str(fa),
+        }
+    )
+    _core.leak_scan(str(merged), payload, str(out), cfg)
+    df = pd.read_csv(out, sep="\t")
+    hit = df[(df["start"] == 451) & (df["end"] == 499)]
+    assert len(hit) == 1
+    assert hit.iloc[0]["strand"] == "+"
+    rows = [
+        {"chrom": "chr1", "start": 451, "end": 499, "strand": "+"},
+        {"chrom": "chr1", "start": 499, "end": 600, "strand": "-"},
+    ]
+    assert len(cluster_junctions(rows)) == 2
