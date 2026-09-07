@@ -2,6 +2,8 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/txnova.svg)](https://pypi.org/project/txnova/)
 [![PyPI downloads](https://img.shields.io/pepy/dt/txnova.svg)](https://pepy.tech/project/txnova)
+[![Bioconda](https://img.shields.io/conda/vn/bioconda/txnova.svg)](https://anaconda.org/bioconda/txnova)
+[![Conda downloads](https://img.shields.io/conda/dn/bioconda/txnova.svg)](https://anaconda.org/bioconda/txnova)
 [![CI](https://github.com/leelieber2025/TxNova/actions/workflows/ci.yml/badge.svg)](https://github.com/leelieber2025/TxNova/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/leelieber2025/TxNova/blob/main/LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21970482.svg)](https://doi.org/10.5281/zenodo.21970482)
@@ -79,7 +81,7 @@ unnamed (control TPM) and shared (splice in both groups).
 
 ### A sensible path
 
-1. Install: `pip install txnova`.
+1. Install: `pip install txnova` (or `conda install -c conda-forge -c bioconda txnova`).
 2. If you still have FASTQ, align first ({doc}`tutorials/t_prepare_bams`).
 3. Follow {doc}`quickstart`.
 4. Open `report/report.html`, then `candidates/residual.tsv` and the

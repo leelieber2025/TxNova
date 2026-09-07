@@ -14,6 +14,8 @@ use WSL2. Rust is only needed for a source build.
 
 ```bash
 pip install txnova
+# or
+conda install -c conda-forge -c bioconda txnova
 ```
 
 Then:

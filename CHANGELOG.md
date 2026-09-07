@@ -13,6 +13,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   in both fitting and statistical testing.
 - Require PyDESeq2 >=0.5, matching the formula-based `design` API in use.
 - Reject MAPQ thresholds outside 0–255 during configuration validation.
+- Document Bioconda install (badges in README/docs, `conda install -c conda-forge -c bioconda txnova`).
 
 ## [0.1.10] - 2026-08-29
 

@@ -2,6 +2,8 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/txnova.svg)](https://pypi.org/project/txnova/)
 [![PyPI downloads](https://img.shields.io/pepy/dt/txnova.svg)](https://pepy.tech/project/txnova)
+[![Bioconda](https://img.shields.io/conda/vn/bioconda/txnova.svg)](https://anaconda.org/bioconda/txnova)
+[![Conda downloads](https://img.shields.io/conda/dn/bioconda/txnova.svg)](https://anaconda.org/bioconda/txnova)
 [![Documentation Status](https://readthedocs.org/projects/txnova/badge/?version=latest)](https://txnova.readthedocs.io/en/latest/?badge=latest)
 [![CI](https://github.com/leelieber2025/TxNova/actions/workflows/ci.yml/badge.svg)](https://github.com/leelieber2025/TxNova/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
@@ -33,6 +35,7 @@ Docs: [Read the Docs](https://txnova.readthedocs.io/en/latest/).
 
 ```bash
 pip install txnova
+# or: conda install -c conda-forge -c bioconda txnova
 ```
 
 Wheels cover Linux and macOS. On Windows use WSL2. Building from source
