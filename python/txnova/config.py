@@ -30,7 +30,7 @@ class GenomeConfig(_Strict):
 
 
 class QuantifyConfig(_Strict):
-    min_mapq: int = 10
+    min_mapq: int = Field(default=10, ge=0, le=255)
     require_unique_nh: bool = False
     library_layout: Literal["auto", "paired", "single"] = "auto"
     skip_duplicate: Literal["auto", "always", "never"] = "auto"

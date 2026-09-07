@@ -2,6 +2,18 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.1.11] - Unreleased
+
+- Fix stale resume results after annotation, FASTA, hexamer-table, package-version,
+  or `coding.require_orf` changes. Rebuild missing peptide output and track
+  per-sample assembly inputs before merging.
+- Use nanosecond file timestamps; avoid rewriting unchanged candidate/harvest
+  tables and stamp inputs after in-place enrichment to preserve resume behavior.
+- Pass `de.padj` to PyDESeq2 independent filtering and honor explicit `threads`
+  in both fitting and statistical testing.
+- Require PyDESeq2 >=0.5, matching the formula-based `design` API in use.
+- Reject MAPQ thresholds outside 0–255 during configuration validation.
+
 ## [0.1.10] - 2026-08-29
 
 - Default `treat_min_detected_replicates` is 2 so a first 2-vs-2 contrast run

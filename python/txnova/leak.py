@@ -176,7 +176,9 @@ def annotate_leak(
     df["in_unnamed"] = in_u
     df["in_candidates"] = in_c
     df["in_shared"] = in_s
-    df.to_csv(leak_tsv, sep="\t", index=False)
+    text = df.to_csv(sep="\t", index=False)
+    if leak_tsv.read_text(encoding="utf-8") != text:
+        leak_tsv.write_text(text, encoding="utf-8")
     n_u = int((df["status"] == "unassembled").sum()) if "status" in df.columns else 0
     n_sh = int((df["cohort"] == "shared").sum()) if "cohort" in df.columns else 0
     log.info(

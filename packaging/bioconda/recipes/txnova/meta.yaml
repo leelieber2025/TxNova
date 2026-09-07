@@ -1,5 +1,5 @@
 {% set name = "txnova" %}
-{% set version = "0.1.10" %}
+{% set version = "0.1.11" %}
 
 package:
   name: {{ name }}
@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: "PLACEHOLDER_FILL_AFTER_SDIST"
+  sha256: "1d19c5666d33263b92060871aac37603f871cc3d304d6fd21ee083f73f7443be"
 
 build:
   number: 0
@@ -41,7 +41,7 @@ requirements:
     - pandas >=2.0,<3
     - rich >=13.0
     - jinja2 >=3.1
-    - pydeseq2 >=0.4
+    - pydeseq2 >=0.5
     - numpy >=1.23,<3
     - scipy >=1.9
 

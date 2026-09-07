@@ -63,10 +63,17 @@ def run_deseq(
         counts=counts_t,
         metadata=meta,
         design="~condition",
+        n_cpus=cfg.threads or None,
         quiet=True,
     )
     dds.deseq2()
-    stat = DeseqStats(dds, contrast=["condition", "treat", "control"], quiet=True)
+    stat = DeseqStats(
+        dds,
+        contrast=["condition", "treat", "control"],
+        alpha=cfg.de.padj,
+        n_cpus=cfg.threads or None,
+        quiet=True,
+    )
     stat.summary()
     res = stat.results_df.copy()
     res.index.name = "locus_id"

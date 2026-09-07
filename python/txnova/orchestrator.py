@@ -6,6 +6,7 @@ from typing import Any
 
 import pandas as pd
 
+from txnova import __version__
 from txnova.assemble import ASSEMBLER_VERSION, Assembler
 from txnova.assembly_evidence import attach_assembly_evidence
 from txnova.config import TxNovaConfig, resolve_hexamer_table
@@ -192,10 +193,12 @@ def _run_discovery(
     )
 
     fp_base = {
+        "txnova": __version__,
         "sheet": sheet_sha(cfg.samples),
         "bams": bam_fingerprint(rows),
         "assembler": version,
-        "annotation": str(cfg.genome.annotation),
+        "annotation": path_fingerprint([cfg.genome.annotation]),
+        "genome": path_fingerprint([cfg.genome.fasta, Path(str(cfg.genome.fasta) + ".fai")]),
     }
     assemble_fp = {
         **fp_base,
@@ -226,6 +229,7 @@ def _run_discovery(
     merge_fp = {
         **fp_base,
         "step": "merge",
+        "inputs": path_fingerprint(sample_gtfs),
         "annotation": path_fingerprint([cfg.genome.annotation]),
         "cfg": {"assembler": ASSEMBLER_VERSION},
     }
@@ -528,6 +532,10 @@ def _run_discovery(
         residual=residual_path,
     )
 
+    # Annotation adds report columns to the harvest input in place.
+    residual_fp["inputs"] = path_fingerprint([leak_path, *residual_gtfs, fai_path])
+    write_stamp(stamps / "residual.json", residual_fp)
+
     if cfg.coding.enabled:
         hex_path = resolve_hexamer_table(cfg)
         final_reps = cand_dir / "candidates.reps.tsv"
@@ -543,10 +551,13 @@ def _run_discovery(
             "engine": engine,
             "inputs": path_fingerprint([coding_src, unnamed_path]),
             "cfg": coding_cfg,
+            "hexamer": path_fingerprint([hex_path]),
+            "require_orf": cfg.coding.require_orf,
         }
         if not (
             stamp_matches(stamps / "coding.json", coding_fp)
             and (cand_dir / "orfs.tsv").is_file()
+            and (cand_dir / "peptides.fa").is_file()
             and cand_path.is_file()
             and unnamed_path.is_file()
         ):
@@ -568,6 +579,8 @@ def _run_discovery(
                 rows,
                 filter_orf=False,
             )
+            # The unnamed table is also enriched with coding columns in place.
+            coding_fp["inputs"] = path_fingerprint([coding_src, unnamed_path])
             write_stamp(stamps / "coding.json", coding_fp)
         else:
             log.info("stamp hit coding")
@@ -792,7 +805,7 @@ def _apply_naming(cfg: TxNovaConfig, rows: list[SampleRow], paths: list[Path]) -
     st = gtf.stat()
     fp = {
         "step": "naming",
-        "gtf": {"path": str(gtf), "size": st.st_size, "mtime": int(st.st_mtime)},
+        "gtf": {"path": str(gtf), "size": st.st_size, "mtime_ns": st.st_mtime_ns},
         "loci": {p.name: _locus_id_list(p) for p in paths},
     }
     have_col = all(

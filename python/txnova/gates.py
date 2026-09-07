@@ -98,7 +98,9 @@ def write_candidates(cand: pd.DataFrame, path: Path, rows: list[SampleRow]) -> N
             )
     extras = [c for c in out.columns if c not in cols]
     path.parent.mkdir(parents=True, exist_ok=True)
-    out[cols + extras].to_csv(path, sep="\t", index=False, na_rep="NA")
+    text = out[cols + extras].to_csv(sep="\t", index=False, na_rep="NA")
+    if not path.is_file() or path.read_text(encoding="utf-8") != text:
+        path.write_text(text, encoding="utf-8")
 
 
 DE_COLUMNS = [

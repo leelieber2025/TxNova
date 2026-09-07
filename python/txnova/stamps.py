@@ -31,7 +31,7 @@ def path_fingerprint(paths: list[Path]) -> dict[str, Any]:
         st = p.stat() if p.is_file() else None
         out[str(p)] = {
             "size": None if st is None else st.st_size,
-            "mtime": None if st is None else int(st.st_mtime),
+            "mtime_ns": None if st is None else st.st_mtime_ns,
         }
     return out
 
@@ -43,7 +43,7 @@ def bam_fingerprint(rows: list[SampleRow]) -> dict[str, Any]:
         out[r.sample_id] = {
             "path": str(r.bam),
             "size": None if st is None else st.st_size,
-            "mtime": None if st is None else int(st.st_mtime),
+            "mtime_ns": None if st is None else st.st_mtime_ns,
         }
     return out
 
