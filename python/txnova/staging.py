@@ -1,9 +1,8 @@
-"""Atomic publish: write under `.txnova_staging_{pid}`, then rename.
+"""Atomic output publishing with process-specific staging directories.
 
-Same rules as scdm:
-- dead-PID staging dirs are removed on the next run
-- a live owner's staging dir is left alone
-- failure deletes this process's staging (no half-written finals)
+Staging directories from stopped processes are removed on the next run. A
+directory owned by a live process is preserved, and a failed run removes its
+own temporary directory before returning.
 """
 
 from __future__ import annotations

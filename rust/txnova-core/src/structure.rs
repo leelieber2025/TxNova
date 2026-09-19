@@ -125,6 +125,7 @@ fn open_gap(a0: u64, a1: u64, b0: u64, b1: u64) -> Option<(u64, u64)> {
     None
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn structure_scan(
     merged_gtf: &str,
     ref_gtf: &str,
@@ -362,7 +363,7 @@ fn feature_row(p: &LocusPrep, sample_id: &str, feat: Option<ValleyFeat>) -> Vec<
         ),
     };
     // no nearest → empty valley/gap (not false). nearest but no open gap
-    // (overlap / abut) → valley_possible=false (合同 S §1 vs §3).
+    // Overlap or adjacency means there is no open gap.
     let (vmean, vposs, gmean) = if !p.has_nearest {
         (String::new(), String::new(), String::new())
     } else if p.gap.is_none() {
@@ -408,6 +409,7 @@ fn feature_row(p: &LocusPrep, sample_id: &str, feat: Option<ValleyFeat>) -> Vec<
     ]
 }
 
+#[allow(clippy::too_many_arguments)]
 fn empty_sample_row(
     locus_id: &str,
     tid: &str,

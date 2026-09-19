@@ -1,8 +1,8 @@
 //! Host probe and live BAM-worker scheduling.
 //!
-//! Pattern from scdm: `threads: 0` sets a CPU ceiling; live concurrency
-//! follows `MemAvailable` and can rise after startup. Explicit `N` is a
-//! ceiling, not a promise to ignore RAM. Does not share scdm extract slots.
+//! `threads: 0` sets a CPU ceiling; live concurrency follows `MemAvailable`
+//! and can rise after startup. Explicit `N` is a ceiling, not a promise to
+//! ignore RAM.
 
 use std::fs;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -13,7 +13,7 @@ use crate::error::{CoreError, Result};
 
 /// RAM held by one concurrent BAM sample worker (reader + PE pending).
 pub const BAM_WORKER_BYTES: u64 = 2 * 1024 * 1024 * 1024;
-/// Headroom for OS + Python + a neighbor job (e.g. scdm).
+/// Headroom for the operating system and the Python process.
 pub const RESERVE_BYTES: u64 = 4 * 1024 * 1024 * 1024;
 /// Do not grow while free RAM is below this.
 const CRITICAL_BYTES: u64 = 4 * 1024 * 1024 * 1024;

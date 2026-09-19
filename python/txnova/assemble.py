@@ -30,7 +30,7 @@ log = get_logger("txnova.assemble")
 ASSEMBLER_NAME = "txnova-residual"
 ASSEMBLER_VERSION = "txnova-residual-2"
 
-# rust parse_gtf only keeps these; CDS/UTR/codon rows are dead weight.
+# These are the feature types retained by the Rust GTF parser.
 MODEL_FEATURES = frozenset({"gene", "transcript", "exon"})
 
 
@@ -56,8 +56,8 @@ class Assembler:
         threads: int,
         extra_args: list[str],
     ) -> None:
-        # Per-sample transcriptome reconstruction is StringTie's cost and
-        # not our discovery engine. Residual leak is multi-sample.
+        # Per-sample transcript reconstruction is not needed. Residual
+        # junctions are collected across all samples.
         del bam, gtf_ref, strandedness, threads, extra_args
         out_gtf.parent.mkdir(parents=True, exist_ok=True)
         out_gtf.write_text(

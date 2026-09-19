@@ -640,7 +640,7 @@ def render_report(
         lines += [
             "",
             "`assembled_in` is unused with the residual assembler "
-            "(per-sample GTFs are stubs). Junction and bridge counts are "
+            "(per-sample GTF reconstruction is not run). Junction and bridge counts are "
             "BAM CIGAR `N`. `de_status=wald` is padj + LFC. "
             "`de_status=low_count` is independent-filtering NA (Wald was "
             "computed); it is not a significant padj.",

@@ -506,8 +506,7 @@ def _run_discovery(
             log.info("stamp hit de")
         coding_src = de_view
     else:
-        # Do not rewrite de_view before the coding fingerprint. Funnel still
-        # wants the file; copy after coding uses gates_path as its input.
+        # Keep the pre-coding view unchanged so its fingerprint remains valid.
         coding_src = gates_path
         _copy_candidate_view(gates_path, de_view, rows)
 
@@ -532,7 +531,7 @@ def _run_discovery(
         residual=residual_path,
     )
 
-    # Annotation adds report columns to the harvest input in place.
+    # Annotation adds report columns to the residual input.
     residual_fp["inputs"] = path_fingerprint([leak_path, *residual_gtfs, fai_path])
     write_stamp(stamps / "residual.json", residual_fp)
 
@@ -579,7 +578,7 @@ def _run_discovery(
                 rows,
                 filter_orf=False,
             )
-            # The unnamed table is also enriched with coding columns in place.
+            # Add coding columns to the unnamed table as well.
             coding_fp["inputs"] = path_fingerprint([coding_src, unnamed_path])
             write_stamp(stamps / "coding.json", coding_fp)
         else:

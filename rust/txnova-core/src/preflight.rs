@@ -24,6 +24,7 @@ pub fn run_preflight(samples_json: &str, fasta: &str, annotation_gtf: &str) -> P
     }
 }
 
+#[allow(clippy::result_large_err)]
 fn fail_report(
     report: PreflightReport,
     err: String,
@@ -31,6 +32,7 @@ fn fail_report(
     Err((report, err))
 }
 
+#[allow(clippy::result_large_err)]
 fn run_preflight_inner(
     samples_json: &str,
     fasta: &str,

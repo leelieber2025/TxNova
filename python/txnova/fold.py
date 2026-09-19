@@ -183,8 +183,8 @@ def render_structure_embed(
 ) -> str:
     """Inline 3Dmol fragment (py3Dmol-style). Persists in exported HTML docs.
 
-    Loads 3Dmol.js from jsDelivr with the same RequireJS workaround py3Dmol
-    uses, so the canvas works on Sphinx / Read the Docs pages.
+    Loads 3Dmol.js from jsDelivr using the module-loading pattern expected by
+    Sphinx and Read the Docs pages.
     """
     width_css = f"{width}px" if isinstance(width, int) else str(width)
     height_css = f"{height}px" if isinstance(height, int) else str(height)

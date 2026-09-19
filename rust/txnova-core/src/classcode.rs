@@ -1,4 +1,4 @@
-//! 合同 C — class code.
+//! Class-code assignment.
 //!
 //! `u(T)` iff no exon–exon overlap on either strand (any strand if unstranded)
 //! AND no exon-union vs any gene body on either strand.
@@ -172,7 +172,7 @@ fn classify_transcript(t: &Transcript, idx: &RefIdx, sample_strandedness: &str) 
     let mut same_body = false;
     let mut anti_body = false;
     let mut any_body_any_strand = false;
-    // Contract C: body overlap is exon-union vs gene body, not the transcript span.
+    // Compare the exon union with the gene body, not the full transcript span.
     for e in &t.exons {
         for hit in bd_ix.overlapping(e.start, e.end) {
             any_body_any_strand = true;

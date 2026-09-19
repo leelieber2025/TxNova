@@ -24,7 +24,7 @@ from txnova.orphan import parse_exons
 
 log = get_logger("txnova.residual")
 
-# gene body: (start, end, strand, name, type, id)
+# Gene body: (start, end, strand, name, type, id).
 GeneBodies = dict[str, list[tuple[int, int, str, str, str, str]]]
 
 RESIDUAL_FILENAME = "residual.tsv"
@@ -54,22 +54,21 @@ RESIDUAL_COLUMNS = [
     "status",
 ]
 
-# Internal exon between two residual introns (not first/last exon).
+# Internal exon between two residual introns.
 MIN_EXON_NT = 30
 MAX_EXON_NT = 20_000
-# Fallback stub if the pooled cohort has no coverage at the splice.
+# Minimum terminal exon used when pooled coverage does not extend the splice.
 MIN_TERMINAL_NT = 30
 TERMINAL_FLANK_NT = MIN_TERMINAL_NT
-# Cohort-coverage walk from each splice site (Cufflinks / StringTie style).
+# Cohort-coverage walk from each splice site.
 MAX_TERMINAL_NT = 2_000
 MIN_TERMINAL_DEPTH = 1
 MAX_TERMINAL_GAP_NT = 20
-# Same-strand, comprehensive GTF: drop only if stuck to a gene (extension).
-# Not a 5 kb gate. Opposite strand is ignored here.
+# Same-strand annotation interval used to remove extensions attached to genes.
 CLOSE_SAME_STRAND_NT = 200
-# Real U2-like introns. 36–37 nt "N" spans in the public runs were mapping noise.
+# Minimum intron length retained by the residual model.
 MIN_INTRON_NT = 50
-# Either-strand. 221720 RSDL.83 sat 1 bp from a U1-class snRNA.
+# RNA feature types excluded when checking nearby small-RNA annotations.
 SMALL_RNA_TYPES = frozenset(
     {
         "snRNA",
@@ -237,8 +236,7 @@ def close_to_small_rna(
 def select_junctions(leak: pd.DataFrame, genes: GeneBodies | None = None) -> pd.DataFrame:
     """Unassembled, not overlapping a gene body on either strand.
 
-    The 200 nt same-strand knife is contract R step 7 (after clustering),
-    not applied here.
+    The same-strand distance filter is applied after clustering.
     """
     if leak.empty:
         return leak
@@ -288,9 +286,7 @@ def same_locus(
     gap = gap_e - gap_s + 1
     if not (min_exon <= gap <= max_exon):
         return False
-    # Do not chain two intron groups across a remaining gene. That span
-    # would then be dropped as "walks over a gene", killing both sides
-    # (mask-1000: Dpf2 + Cdc42ep2 across Gm42067).
+    # Do not join two intron groups across an annotated gene body.
     if genes is not None and gap_s <= gap_e:
         if overlaps_gene_body(str(a["chrom"]), gap_s, gap_e, genes):
             return False
@@ -452,7 +448,7 @@ def apply_terminal_extents(
     min_terminal: int = MIN_TERMINAL_NT,
     contig_len: dict[str, int] | None = None,
 ) -> tuple[pd.DataFrame, int]:
-    """Replace stub terminals with coverage walks, clipped off gene bodies."""
+    """Extend terminal exons with coverage, without crossing gene bodies."""
     if df.empty or extents is None or extents.empty:
         return df, 0
     by_id = extents.set_index("residual_id")
@@ -484,7 +480,7 @@ def apply_terminal_extents(
         left, right = clip_terminals_from_genes(
             str(rec["chrom"]), left, right, intron_s, intron_e, genes
         )
-        # No room after clip: drop that terminal. Never fall back into a gene.
+        # If clipping leaves no room, retain the intron boundary.
         if left > intron_s - 1:
             left = intron_s
         if right < intron_e + 1:
@@ -492,8 +488,7 @@ def apply_terminal_extents(
         struct, n_exons, loc_s, loc_e, length = _rebuild_exons(
             str(rec["intron_structure"]), left, right
         )
-        # Intron chain is the evidence. A 30 nt stub terminal is a missing
-        # walk, not a reason to drop Slc12a8-like multi-junction loci.
+        # Keep an intact intron chain even when a terminal has only its minimum length.
         if n_exons < 2:
             n_degenerate += 1
             continue
@@ -635,7 +630,7 @@ def cluster_leak(
     n_degenerate = 0
     for members in clusters:
         rec = _cluster_record(members, "", contig_len=contig_len)
-        # Intron span only. Terminal flanks must not kill a nearby locus.
+        # Use the intron span; terminal flanks do not define proximity.
         if genes:
             span_s, span_e = _intron_span(members)
             chrom, strand = str(rec["chrom"]), str(rec["strand"])

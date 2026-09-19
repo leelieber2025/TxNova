@@ -72,6 +72,7 @@ fn classify_gtfs(
 }
 
 #[pyfunction]
+#[allow(clippy::too_many_arguments)]
 fn structure_scan(
     py: Python<'_>,
     merged_gtf: &str,

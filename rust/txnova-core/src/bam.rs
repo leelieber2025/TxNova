@@ -184,7 +184,7 @@ pub fn parse_pg_records(header_text: &str) -> Vec<(String, String)> {
     out
 }
 
-/// Contract P §9–14. Any Bowtie2/minimap2 fails even if STAR is also present.
+/// Validate the supported aligner metadata and coordinate order.
 pub fn infer_aligner_family(header_text: &str) -> Result<AlignerFamily> {
     let recs = parse_pg_records(header_text);
     if recs.is_empty() {

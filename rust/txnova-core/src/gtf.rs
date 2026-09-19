@@ -272,7 +272,7 @@ fn strip_chr_prefix(name: &str) -> String {
     }
 }
 
-/// Contract P §8. Returns Ok(n_gtf_seqnames) or a fail message.
+/// Return the number of sequence names, or a validation error.
 pub fn check_gtf_vs_bam(
     gtf_names: &BTreeSet<String>,
     bam_names: &BTreeSet<String>,

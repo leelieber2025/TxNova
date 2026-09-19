@@ -23,6 +23,8 @@ struct SamplesJson {
     samples: Vec<SampleIn>,
 }
 
+type QuantResult = (HashMap<String, f64>, HashMap<String, f64>, u64);
+
 #[derive(Debug, Clone, Deserialize)]
 struct QuantCfg {
     #[serde(default = "d_mapq")]
@@ -192,7 +194,7 @@ fn quantify_one_sample(
     cfg: &QuantCfg,
     by_chrom: &HashMap<String, IvIndex<ExonHit>>,
     gene_introns_ix: &HashMap<String, HashSet<(u64, u64)>>,
-) -> Result<(HashMap<String, f64>, HashMap<String, f64>, u64)> {
+) -> Result<QuantResult> {
     let mut reader = bam::open_sequential(Path::new(&sample.bam))?;
     let idx = tid_index(reader.header(), by_chrom);
     let skip = skip_dup(&cfg.skip_duplicate, sample.dup_flag_seen);

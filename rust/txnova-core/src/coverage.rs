@@ -115,7 +115,7 @@ pub fn cigar_introns(rec: &Record) -> Vec<(u64, u64)> {
 }
 
 /// 1-based inclusive genomic intron spans. Shared with `splice_features`
-/// so `donors` / `junction_support` stay aligned (合同 K).
+/// so `donors` and `junction_support` stay aligned.
 ///
 /// Length-1 introns (`e == s`) are kept. Overlapping or abutting exons
 /// produce no intron for that pair (`n_introns != n_exons - 1`).
@@ -134,7 +134,7 @@ pub fn transcript_introns(t: &Transcript) -> Vec<(u64, u64)> {
 }
 
 /// True if a CIGAR `N` joins the novel terminal site facing `gap` to an
-/// exon boundary of the nearest gene (合同 J).
+/// exon boundary of the nearest gene.
 ///
 /// Novel left of the gene: donor is the novel 3′ end (`N` starts at `gap.0`);
 /// acceptor is any nearest-gene exon start. Novel right: the mirror.
@@ -203,6 +203,7 @@ fn unique_key(rec: &Record, require_unique_nh: bool) -> Option<Vec<u8>> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn scan_locus_sample(
     reader: &mut rust_htslib::bam::IndexedReader,
     bam_path: &Path,
@@ -343,7 +344,7 @@ pub fn scan_locus_sample(
     };
 
     // Whole-gap mean: a 200 bp empty window next to a transcribed 3′
-    // extension (smoke MSTRG.9252) is not an intergenic desert.
+    // extension is not an intergenic gap.
     let gap_mean = match gap {
         Some((g0, g1)) if g1 >= g0 => {
             let mut s = 0f64;

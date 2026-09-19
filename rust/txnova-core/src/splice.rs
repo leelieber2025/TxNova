@@ -1,4 +1,4 @@
-//! 合同 K — canonical splice dinucleotides on the transcript strand.
+//! Canonical splice dinucleotides on the transcript strand.
 
 use crate::error::Result;
 use crate::fasta::FastaIndex;
@@ -17,7 +17,7 @@ pub fn is_canonical(donor: &[u8; 2], acceptor: &[u8; 2]) -> bool {
 /// (GT-AG/GC-AG/AT-AC) hits, ties and no-evidence loci defaulting to plus.
 /// Both the canonical-splice gate (below) and the spliced-sequence /
 /// ORF scan (`orf::splice_seq`) call this so a locus gets one consistent
-/// strand call rather than being silently read as plus by each in turn.
+/// strand call rather than defaulting to plus independently.
 pub fn infer_unstranded_plus(t: &Transcript, fa: &FastaIndex) -> Result<bool> {
     let introns = crate::coverage::transcript_introns(t);
     let mut plus_can = 0usize;
@@ -47,7 +47,7 @@ pub fn infer_unstranded_plus(t: &Transcript, fa: &FastaIndex) -> Result<bool> {
 /// Per-intron donor/acceptor on the transcript strand + canonical fraction.
 ///
 /// Intron set is `coverage::transcript_introns` so `donors` and
-/// `junction_support` stay the same length and order (合同 K).
+/// `junction_support` stay the same length and order.
 pub fn splice_features(
     t: &Transcript,
     fa: &FastaIndex,
@@ -70,8 +70,7 @@ pub fn splice_features(
     } else {
         None
     };
-    // Unstranded loci (strand '.') must not be silently scored as plus:
-    // pick the better-supported reading once for the whole transcript.
+    // Choose the better-supported reading once for the whole transcript.
     let plus = if t.strand == '-' {
         false
     } else if t.strand == '+' {

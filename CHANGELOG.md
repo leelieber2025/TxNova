@@ -2,7 +2,15 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [0.1.11] - Unreleased
+## [0.1.12] - 2026-09-19
+
+- Added the TxNova bioRxiv preprint citation to the README, documentation, and `CITATION.cff`.
+- Updated the package and Rust extension version to 0.1.12.
+- Clarified internal comments and removed development-only wording from the implementation.
+- Added Ruff and Clippy checks to continuous integration.
+- Included `CITATION.cff` in source and wheel distributions.
+
+## [0.1.11]
 
 - Fix stale resume results after annotation, FASTA, hexamer-table, package-version,
   or `coding.require_orf` changes. Rebuild missing peptide output and track

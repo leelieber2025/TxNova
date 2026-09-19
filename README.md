@@ -70,12 +70,29 @@ Next: [Preparing input BAMs](https://txnova.readthedocs.io/en/latest/tutorials/t
 
 ## Status
 
-**0.1.x.** Pin `txnova==0.1.11` in Methods. [Changelog](CHANGELOG.md).
+**0.1.x.** Pin `txnova==0.1.12` in Methods. [Changelog](CHANGELOG.md).
 
 ## Citation
 
-For the software, cite the Zenodo DOI above. Pin the installed
-version in Methods (this tree is `txnova==0.1.11`). See `CITATION.cff`.
+If you use TxNova in published work, please cite the preprint:
+
+> Zhao Li, Aaron James, Shengxuan Li.
+> TxNova: recovery of recurrent unannotated intergenic splice loci from existing bulk RNA-seq alignments.
+> bioRxiv (2026). [doi:10.64898/2026.08.24.746847](https://doi.org/10.64898/2026.08.24.746847)
+
+```bibtex
+@article{li2026txnova,
+  title   = {TxNova: recovery of recurrent unannotated intergenic splice loci from existing bulk RNA-seq alignments},
+  author  = {Li, Zhao and James, Aaron and Li, Shengxuan},
+  journal = {bioRxiv},
+  year    = {2026},
+  doi     = {10.64898/2026.08.24.746847},
+  url     = {https://www.biorxiv.org/content/10.64898/2026.08.24.746847v1},
+}
+```
+
+For the software record, cite the Zenodo DOI above. Pin the installed
+version in Methods (this tree is `txnova==0.1.12`). See `CITATION.cff`.
 
 > Li, Z. TxNova. *Zenodo*. doi:10.5281/zenodo.21970482
 

@@ -69,7 +69,7 @@ mod tests {
         )
     }
 
-    fn hits<'a>(ix: &'a IvIndex<&'static str>, start: u64, end: u64) -> Vec<&'static str> {
+    fn hits(ix: &IvIndex<&'static str>, start: u64, end: u64) -> Vec<&'static str> {
         ix.overlapping(start, end).map(|iv| iv.data).collect()
     }
 

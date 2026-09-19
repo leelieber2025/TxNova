@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "txnova"
-version = "0.1.11"
+version = "0.1.12"
 description = "Unannotated spliced residual loci from bulk RNA-seq BAMs"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -53,6 +53,7 @@ features = ["pyo3/extension-module"]
 include = [
   "LICENSE",
   "README.md",
+  "CITATION.cff",
   "python/txnova/data/Mouse_Hexamer.tsv",
   "python/txnova/data/Human_Hexamer.tsv",
   "python/txnova/data/SOURCE.txt",
@@ -68,8 +69,7 @@ line-length = 100
 target-version = "py310"
 
 [tool.ruff.lint]
-# Latest ruff enables many rules 0.1.9 already violated (typer Option defaults,
-# network-call except Exception, HTML string concat). Keep E/F/I/W/UP green.
+# Keep the core style, import, warning, and modern-Python checks enabled.
 ignore = [
     "B008",
     "B017",

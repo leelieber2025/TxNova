@@ -18,7 +18,7 @@ identifiers:
     description: >-
       Concept DOI representing all versions; always resolves to the latest release.
 license: Apache-2.0
-version: 0.1.11
+version: 0.1.12
 keywords:
   - RNA-seq
   - bulk RNA-seq
@@ -26,3 +26,19 @@ keywords:
   - residual splice
   - differential expression
   - bioinformatics
+references:
+  - type: article
+    authors:
+      - family-names: "Li"
+        given-names: "Zhao"
+      - family-names: "James"
+        given-names: "Aaron"
+      - family-names: "Li"
+        given-names: "Shengxuan"
+    title: >-
+      TxNova: recovery of recurrent unannotated intergenic splice loci from
+      existing bulk RNA-seq alignments
+    journal: bioRxiv
+    year: 2026
+    doi: 10.64898/2026.08.24.746847
+    url: "https://www.biorxiv.org/content/10.64898/2026.08.24.746847v1"

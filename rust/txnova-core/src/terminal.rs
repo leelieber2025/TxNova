@@ -110,6 +110,7 @@ pub fn walk_terminal(
     last
 }
 
+#[allow(clippy::too_many_arguments)]
 fn add_depth(
     reader: &mut rust_htslib::bam::IndexedReader,
     bam_path: &Path,
