@@ -1,9 +1,10 @@
 # TxNova Documentation
 
 [![PyPI version](https://img.shields.io/pypi/v/txnova.svg)](https://pypi.org/project/txnova/)
-[![PyPI downloads](https://img.shields.io/pepy/dt/txnova.svg)](https://pepy.tech/project/txnova)
+[![PyPI downloads](https://img.shields.io/pepy/dt/txnova.svg?label=PyPI%20downloads)](https://pepy.tech/project/txnova)
 [![Bioconda](https://img.shields.io/conda/vn/bioconda/txnova.svg)](https://anaconda.org/bioconda/txnova)
-[![Conda downloads](https://img.shields.io/conda/dn/bioconda/txnova.svg)](https://anaconda.org/bioconda/txnova)
+[![Conda downloads](https://img.shields.io/conda/dn/bioconda/txnova.svg?label=Bioconda%20downloads)](https://anaconda.org/bioconda/txnova)
+[![Total downloads](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/leelieber2025/TxNova/badges/downloads.json)](https://pepy.tech/project/txnova)
 [![CI](https://github.com/leelieber2025/TxNova/actions/workflows/ci.yml/badge.svg)](https://github.com/leelieber2025/TxNova/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/leelieber2025/TxNova/blob/main/LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21970482.svg)](https://doi.org/10.5281/zenodo.21970482)
