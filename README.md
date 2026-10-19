@@ -4,6 +4,7 @@
 [![PyPI downloads](https://img.shields.io/pepy/dt/txnova.svg)](https://pepy.tech/project/txnova)
 [![Bioconda](https://img.shields.io/conda/vn/bioconda/txnova.svg)](https://anaconda.org/bioconda/txnova)
 [![Conda downloads](https://img.shields.io/conda/dn/bioconda/txnova.svg)](https://anaconda.org/bioconda/txnova)
+[![Total downloads](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/leelieber2025/TxNova/badges/downloads.json)](https://pepy.tech/project/txnova)
 [![Documentation Status](https://readthedocs.org/projects/txnova/badge/?version=latest)](https://txnova.readthedocs.io/en/latest/?badge=latest)
 [![CI](https://github.com/leelieber2025/TxNova/actions/workflows/ci.yml/badge.svg)](https://github.com/leelieber2025/TxNova/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
