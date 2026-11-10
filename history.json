@@ -1,9 +1,9 @@
 {
  "package": "txnova",
  "pypi_total": 8311,
- "conda_total": 6931,
- "total": 15242,
- "updated": "2026-11-09T16:30:16+00:00",
+ "conda_total": 6932,
+ "total": 15243,
+ "updated": "2026-11-10T14:58:30+00:00",
  "pypi_daily": {
   "2026-08-16": 514,
   "2026-08-17": 702,
