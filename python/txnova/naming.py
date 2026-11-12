@@ -21,7 +21,8 @@ NAMING_ANNOTATED = "annotated"
 
 def chrom_key(name: str) -> str:
     n = str(name)
-    n = n.removeprefix("chr")
+    if n.lower().startswith("chr"):
+        n = n[3:]
     if n.upper() in {"M", "MT"}:
         return "MT"
     return n

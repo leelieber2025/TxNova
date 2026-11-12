@@ -293,7 +293,7 @@ def _locus_record(
     n_exons: int,
     length_nt: int,
     head: pd.Series | None,
-    frac: float,
+    frac: float | str | None,
     disc_ok: bool,
     valley_med: object,
     gap_med: object,
@@ -355,7 +355,12 @@ def _locus_record(
         for sid in [r.sample_id for r in rows]:
             rec_out[f"{sid}_tpm"] = float(tpm_row.iloc[0][sid]) if sid in tpm_row.columns else 0.0
     if not counts.empty:
-        crow = counts[counts["locus_id"] == lid]
+        if counts.index.name == "locus_id" and lid in counts.index:
+            crow = counts.loc[[lid]]
+        elif "locus_id" in counts.columns:
+            crow = counts[counts["locus_id"] == lid]
+        else:
+            crow = pd.DataFrame()
         for sid in [r.sample_id for r in rows]:
             rec_out[f"{sid}_count"] = (
                 float(crow.iloc[0][sid]) if not crow.empty and sid in crow.columns else 0.0
@@ -391,8 +396,8 @@ def apply_gates(
         if tpm.empty or "locus_id" not in tpm.columns:
             raise TxNovaError(f"missing or empty full-universe TPM table {locus_tpm}")
         have = set(tpm["locus_id"].astype(str))
-        need = {str(x) for x in reps["locus_id"]}
-        missing = sorted(need - have)
+        needed = {str(x) for x in reps["locus_id"]}
+        missing = sorted(needed - have)
         if missing:
             raise TxNovaError(
                 f"{locus_tpm} missing locus_id {missing[0]}"
@@ -410,6 +415,16 @@ def apply_gates(
     uns = all(r.strandedness == "unstranded" for r in rows)
     cls_by_tid = cls.set_index("transcript_id", drop=False)
     feat_groups = feat.groupby("locus_id", sort=False) if not feat.empty else None
+    tpm_by = (
+        tpm.set_index("locus_id", drop=False)
+        if not tpm.empty and "locus_id" in tpm.columns
+        else None
+    )
+    counts_by = (
+        counts.set_index("locus_id", drop=False)
+        if not counts.empty and "locus_id" in counts.columns
+        else None
+    )
 
     for rec in reps.to_dict(orient="records"):
         lid = rec["locus_id"]
@@ -439,14 +454,16 @@ def apply_gates(
         passed.append("transcript_min_nt")
 
         n_introns = _n_introns(head, n_exons)
-        frac = _splice_fraction(head)
+        frac_num = _splice_fraction(head)
+        frac: float | str | None
         if n_introns > 0:
-            scored = 0.0 if frac is None else frac
+            scored = 0.0 if frac_num is None else frac_num
             if f.require_canonical_splice and scored < (1.0 - f.max_noncanonical_junction_fraction):
                 continue
             passed.append("canonical_splice")
-        elif frac is None:
-            frac = ""
+            frac = frac_num
+        else:
+            frac = "" if frac_num is None else frac_num
 
         has_nearest = False
         dist = None
@@ -462,7 +479,10 @@ def apply_gates(
             continue
         passed.append("distance")
 
-        tpm_row = tpm[tpm["locus_id"] == lid] if not tpm.empty else pd.DataFrame()
+        if tpm_by is not None and lid in tpm_by.index:
+            tpm_row = tpm_by.loc[[lid]]
+        else:
+            tpm_row = pd.DataFrame()
         treat_tpms_by = {
             sid: (
                 float(tpm_row.iloc[0][sid]) if not tpm_row.empty and sid in tpm_row.columns else 0.0
@@ -473,8 +493,8 @@ def apply_gates(
 
         # discontinuity
         disc_ok = True
-        valley_med = ""
-        gap_med = ""
+        valley_med: float | str = ""
+        gap_med: float | str = ""
         if not has_nearest:
             passed.append("discontinuity")
         elif f.require_coverage_discontinuity:
@@ -599,7 +619,7 @@ def apply_gates(
             sample_junc=sample_junc,
             sample_bridge=sample_bridge,
             tpm_row=tpm_row,
-            counts=counts,
+            counts=counts_by if counts_by is not None else counts,
             rows=rows,
         )
         if rmsk_idx is not None:
@@ -618,7 +638,9 @@ def apply_gates(
                 continue
             if treat_med < f.treat_median_tpm:
                 continue
-        rec_out["gates_passed"] = ",".join(passed + ["detect"])
+            rec_out["gates_passed"] = ",".join(passed + ["detect"])
+        else:
+            rec_out["gates_passed"] = ",".join(passed)
         out_rows.append(rec_out)
 
     out_dir.mkdir(parents=True, exist_ok=True)

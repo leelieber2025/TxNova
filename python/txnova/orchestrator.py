@@ -312,6 +312,9 @@ def _run_discovery(
             "keep_stub_terminal": True,
             "clip_contig": True,
             "no_chain_across_gene": True,
+            "min_mapq": cfg.quantify.min_mapq,
+            "skip_duplicate": cfg.quantify.skip_duplicate,
+            "require_unique_nh": cfg.quantify.require_unique_nh,
         },
     }
     if not (
@@ -327,6 +330,7 @@ def _run_discovery(
             samples_json=payload,
             min_mapq=cfg.quantify.min_mapq,
             skip_duplicate=cfg.quantify.skip_duplicate,
+            require_unique_nh=cfg.quantify.require_unique_nh,
             fasta=cfg.genome.fasta,
         )
         write_stamp(stamps / "residual.json", residual_fp)

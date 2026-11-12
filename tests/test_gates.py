@@ -971,3 +971,4 @@ def test_discovery_only_keeps_structure_pass(tmp_path: Path) -> None:
     )
     assert len(cand) == 1
     assert cand.iloc[0]["locus_id"] == "L1"
+    assert "detect" not in str(cand.iloc[0]["gates_passed"]).split(",")

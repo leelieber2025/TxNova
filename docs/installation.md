@@ -56,7 +56,14 @@ node, set both to `false` (see [Configuration](configuration.md#coding)).
 ## Development install
 
 Only for changing the code or running the test suite. This compiles the
-Rust engine; you need `rustc` / `cargo` (`rustup`).
+Rust engine; you need `rustc` / `cargo` (`rustup`) and the C/clang headers
+that `rust-htslib` links against:
+
+- `clang` and `libclang` (set `LIBCLANG_PATH` if the toolchain cannot find it)
+- development packages for `zlib`, `bzip2`, and `xz` (`liblzma`)
+
+On Debian/Ubuntu: `sudo apt install clang libclang-dev zlib1g-dev libbz2-dev liblzma-dev`.
+On macOS: `brew install llvm zlib bzip2 xz`.
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh

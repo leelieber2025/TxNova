@@ -208,7 +208,7 @@ def nearest_any_strand(
 
 
 def _intron_nt(start: object, end: object) -> int:
-    return int(end) - int(start) + 1
+    return int(str(end)) - int(str(start)) + 1
 
 
 def close_to_small_rna(
@@ -521,6 +521,44 @@ def _with_residual_columns(df: pd.DataFrame) -> pd.DataFrame:
     return out[RESIDUAL_COLUMNS]
 
 
+def _member_int(m: dict, *keys: str, default: int = 0) -> int:
+    """First present numeric field. Unlike `or`, a written 0 is kept."""
+    for k in keys:
+        if k not in m:
+            continue
+        v = m[k]
+        if v is None or v == "" or (isinstance(v, float) and pd.isna(v)):
+            continue
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            continue
+    return default
+
+
+def _members_have_labeled_groups(members: list[dict]) -> bool:
+    """True when leak rows carry a control/treat contrast (not catalog-only)."""
+    for m in members:
+        if _member_int(m, "treat_n_detected", "treat_sum"):
+            return True
+        if _member_int(m, "control_max", "control_n_detected"):
+            return True
+        if str(m.get("cohort") or "") in {"shared", "silent"}:
+            return True
+    return False
+
+
+def _cluster_cohort(members: list[dict], *, control_max: int, control_n: int) -> str:
+    if control_max > 0 or control_n > 0:
+        return "shared"
+    labels = [str(m.get("cohort") or "") for m in members]
+    if any(c == "silent" for c in labels):
+        return "silent"
+    if any(c == "cohort" for c in labels):
+        return "cohort"
+    return "cohort"
+
+
 def _cluster_record(
     members: list[dict], residual_id: str, contig_len: dict[str, int] | None = None
 ) -> dict:
@@ -531,13 +569,18 @@ def _cluster_record(
         cap = contig_len.get(chrom) or contig_len.get(chrom_key(chrom))
     struct, n_exons, loc_s, loc_e = exon_structure(chain, contig_end=cap)
     nearest_name, nearest_d = _nearest_from_members(members)
-    treat_n = max(int(m.get("n_detected") or m.get("treat_n_detected") or 0) for m in members)
-    treat_sum = int(sum(int(m.get("support_sum") or m.get("treat_sum") or 0) for m in members))
-    control_max = max(int(m.get("control_max") or 0) for m in members)
-    control_n = max(int(m.get("control_n_detected") or 0) for m in members)
+    control_max = max(_member_int(m, "control_max") for m in members)
+    control_n = max(_member_int(m, "control_n_detected") for m in members)
     if control_n == 0 and control_max > 0:
         control_n = 1
-    cohort = "shared" if control_max > 0 else "silent"
+    labeled = _members_have_labeled_groups(members)
+    if labeled:
+        treat_n = max(_member_int(m, "treat_n_detected") for m in members)
+        treat_sum = int(sum(_member_int(m, "treat_sum") for m in members))
+    else:
+        treat_n = max(_member_int(m, "n_detected", "treat_n_detected") for m in members)
+        treat_sum = int(sum(_member_int(m, "support_sum", "treat_sum") for m in members))
+    cohort = _cluster_cohort(members, control_max=control_max, control_n=control_n)
     return {
         "residual_id": residual_id,
         "chrom": chrom,
@@ -760,6 +803,7 @@ def write_residuals(
     samples_json: str | None = None,
     min_mapq: int = 10,
     skip_duplicate: str = "auto",
+    require_unique_nh: bool = False,
     fasta: Path | None = None,
 ) -> pd.DataFrame:
     if not leak_tsv.is_file() or leak_tsv.stat().st_size == 0:
@@ -782,6 +826,7 @@ def write_residuals(
             genes=genes or None,
             min_mapq=min_mapq,
             skip_duplicate=skip_duplicate,
+            require_unique_nh=require_unique_nh,
             fasta=fasta,
             contig_len=contig_len or None,
         )
@@ -818,10 +863,11 @@ def _extend_with_coverage(
     genes: GeneBodies | None,
     min_mapq: int,
     skip_duplicate: str,
+    require_unique_nh: bool = False,
     fasta: Path | None = None,
     contig_len: dict[str, int] | None = None,
 ) -> tuple[pd.DataFrame, int]:
-    from txnova import _core
+    from txnova import _core  # type: ignore[attr-defined]
 
     with tempfile.TemporaryDirectory(prefix="txnova_term_") as td:
         tmp = Path(td)
@@ -840,6 +886,7 @@ def _extend_with_coverage(
         cfg = {
             "min_mapq": min_mapq,
             "skip_duplicate": skip_duplicate,
+            "require_unique_nh": require_unique_nh,
             "max_terminal_nt": MAX_TERMINAL_NT,
             "min_depth": MIN_TERMINAL_DEPTH,
             "max_gap_nt": MAX_TERMINAL_GAP_NT,

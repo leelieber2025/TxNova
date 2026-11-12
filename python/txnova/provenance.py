@@ -34,7 +34,7 @@ def _bam_meta(path: Path) -> dict[str, Any]:
 
 def _core_version() -> str:
     try:
-        from txnova import _core as core
+        from txnova import _core as core  # type: ignore[attr-defined]
 
         return str(core.core_version())
     except Exception:

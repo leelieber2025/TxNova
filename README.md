@@ -71,7 +71,7 @@ Next: [Preparing input BAMs](https://txnova.readthedocs.io/en/latest/tutorials/t
 
 ## Status
 
-**0.1.x.** Pin `txnova==0.1.12` in Methods. [Changelog](CHANGELOG.md).
+**0.1.x.** Pin `txnova==0.1.13` in Methods. [Changelog](CHANGELOG.md).
 
 ## Citation
 
@@ -93,7 +93,7 @@ If you use TxNova in published work, please cite the preprint:
 ```
 
 For the software record, cite the Zenodo DOI above. Pin the installed
-version in Methods (this tree is `txnova==0.1.12`). See `CITATION.cff`.
+version in Methods (this tree is `txnova==0.1.13`). See `CITATION.cff`.
 
 > Li, Z. TxNova. *Zenodo*. doi:10.5281/zenodo.21970482
 

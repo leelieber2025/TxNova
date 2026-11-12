@@ -2,7 +2,7 @@
 
 from txnova.errors import TxNovaError
 
-__version__ = "0.1.12"
+__version__ = "0.1.13"
 USER_AGENT = f"txnova/{__version__}"
 
 

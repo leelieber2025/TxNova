@@ -21,6 +21,9 @@ def test_chrom_key() -> None:
     assert chrom_key("chrM") == "MT"
     assert chrom_key("MT") == "MT"
     assert chrom_key("M") == "MT"
+    assert chrom_key("CHR8") == "8"
+    assert chrom_key("ChrX") == "X"
+    assert chrom_key("ChrM") == "MT"
 
 
 def test_classify_prefers_same_strand_protein_coding(tmp_path: Path) -> None:

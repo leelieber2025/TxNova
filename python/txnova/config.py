@@ -116,7 +116,7 @@ def peek_gtf_species(path: Path) -> str | None:
             if line.startswith("#"):
                 continue
             parts = line.split("\t")
-            if len(parts) < 9 or parts[2] != "gene":
+            if len(parts) < 9 or parts[2] not in {"gene", "transcript", "exon"}:
                 continue
             attrs = parts[8]
             if _MOUSE_ENSG.search(attrs):
@@ -143,7 +143,13 @@ def apply_inferred_species(cfg: TxNovaConfig) -> TxNovaConfig:
                 f"species: {cfg.species} does not match the annotation GTF ({gtf_sp})"
             )
     else:
-        cfg.species = gtf_sp or asm_sp or "mouse"
+        inferred = gtf_sp or asm_sp
+        if inferred is None:
+            raise TxNovaError(
+                "species is auto but could not be inferred from the annotation GTF "
+                "or genome.assembly; set species explicitly to mouse or human"
+            )
+        cfg.species = inferred
     if species_from_assembly(cfg.genome.assembly) != cfg.species:
         cfg.genome.assembly = default_assembly(cfg.species)
     return cfg

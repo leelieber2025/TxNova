@@ -9,6 +9,7 @@ emits (load 3Dmol from jsDelivr, persist in exported HTML). No docking.
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 import re
 import urllib.error
@@ -193,12 +194,12 @@ def render_structure_embed(
     if vid[0].isdigit():
         vid = f"v{vid}"
     plddt = "NA" if mean_plddt is None else f"{mean_plddt:.1f}"
-    extra = f" {note}" if note else ""
+    extra = f" {html.escape(note)}" if note else ""
     head = ""
     if caption:
         head = (
-            f'<p class="txnova-fold-caption"><strong>{title}</strong> · '
-            f"source {source} · mean pLDDT {plddt}.{extra}<br>"
+            f'<p class="txnova-fold-caption"><strong>{html.escape(title)}</strong> · '
+            f"source {html.escape(source)} · mean pLDDT {html.escape(plddt)}.{extra}<br>"
             f"pLDDT: {_plddt_legend()}</p>\n"
         )
     pdb_js = json.dumps(pdb_text)
@@ -288,6 +289,10 @@ def render_structure_html(
     note: str = "",
 ) -> str:
     plddt = "NA" if mean_plddt is None else f"{mean_plddt:.1f}"
+    title_h = html.escape(title)
+    source_h = html.escape(source)
+    note_h = html.escape(note)
+    plddt_h = html.escape(plddt)
     embed = render_structure_embed(
         title=title,
         pdb_text=pdb_text,
@@ -303,7 +308,7 @@ def render_structure_html(
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>{title}</title>
+<title>{title_h}</title>
 <style>
 body {{ margin: 0; font: 15px/1.45 system-ui, sans-serif; color: #1a1a1a; }}
 header {{ padding: 0.8rem 1.2rem; border-bottom: 1px solid #ddd; }}
@@ -312,8 +317,8 @@ header {{ padding: 0.8rem 1.2rem; border-bottom: 1px solid #ddd; }}
 </head>
 <body>
 <header>
-  <strong>{title}</strong>
-  <div class="note">source {source} · mean pLDDT {plddt}. {note}</div>
+  <strong>{title_h}</strong>
+  <div class="note">source {source_h} · mean pLDDT {plddt_h}. {note_h}</div>
   <div class="note">pLDDT: {_plddt_legend()}</div>
 </header>
 {embed}
@@ -339,14 +344,15 @@ def _write_index(out_dir: Path, rows: list[dict]) -> None:
         if not isinstance(view, str) or not view or view == "nan":
             link = ""
         else:
-            link = f"<a href='{Path(view).name}'>open</a>"
+            href = html.escape(Path(view).name, quote=True)
+            link = f"<a href='{href}'>open</a>"
         lines.append(
             "<tr>"
-            f"<td>{r.get('locus_id', '')}</td>"
-            f"<td>{r.get('source', '')}</td>"
-            f"<td>{r.get('uniprot') or r.get('gene') or ''}</td>"
-            f"<td>{r.get('n_aa', '')}</td>"
-            f"<td>{r.get('mean_plddt') if r.get('mean_plddt') is not None else ''}</td>"
+            f"<td>{html.escape(str(r.get('locus_id', '') or ''))}</td>"
+            f"<td>{html.escape(str(r.get('source', '') or ''))}</td>"
+            f"<td>{html.escape(str(r.get('uniprot') or r.get('gene') or ''))}</td>"
+            f"<td>{html.escape(str(r.get('n_aa', '') or ''))}</td>"
+            f"<td>{html.escape(str(r.get('mean_plddt') if r.get('mean_plddt') is not None else ''))}</td>"
             f"<td>{link}</td></tr>"
         )
     lines.append("</table></body></html>")

@@ -2,6 +2,19 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.1.13] - 2026-11-11
+
+- Residual terminal extension honors `quantify.require_unique_nh`. Residual stamps also include `min_mapq`, `skip_duplicate`, and `require_unique_nh`.
+- With a contrast, clustered `treat_n_detected` and `treat_sum` use the treat fields only. Catalog-only runs keep `cohort="cohort"` instead of rewriting it to `silent`.
+- `species: auto` scans gene, transcript, and exon rows. If the GTF and the assembly name are both uninformative, configuration raises instead of defaulting to mouse.
+- Structure-only runs no longer append `detect` to `gates_passed`.
+- `chrom_key` treats a `chr` prefix as case-insensitive.
+- Fold viewer HTML escapes the caption, title, source, and note.
+- CI tests Python 3.10, 3.11, and 3.13. mypy runs as a non-blocking job.
+- Installation docs list the clang, zlib, bzip2, and xz packages needed for a source build.
+- The in-repo Bioconda recipe records the published 0.1.12 sdist sha256.
+- The daily downloads badge skips a commit when the total is unchanged. Test CI ignores the `badges` branch.
+
 ## [0.1.12] - 2026-09-19
 
 - Added the TxNova bioRxiv preprint citation to the README, documentation, and `CITATION.cff`.

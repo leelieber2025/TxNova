@@ -6,7 +6,7 @@
 //! Gene-body clipping stays in Python.
 
 use crate::bam;
-use crate::coverage::{aligned_blocks, pass_read, strand_ok};
+use crate::coverage::{aligned_blocks, nh_is_unique, pass_read, strand_ok};
 use crate::error::{CoreError, Result};
 use crate::fasta;
 use crate::gtf::write_tsv;
@@ -43,6 +43,8 @@ struct Cfg {
     max_gap_nt: u64,
     #[serde(default)]
     fasta: Option<String>,
+    #[serde(default = "d_unique")]
+    require_unique_nh: bool,
 }
 
 fn d_mapq() -> u8 {
@@ -59,6 +61,9 @@ fn d_depth() -> u32 {
 }
 fn d_gap() -> u64 {
     20
+}
+fn d_unique() -> bool {
+    false
 }
 
 fn skip_dup(mode: &str, seen: bool) -> bool {
@@ -122,6 +127,7 @@ fn add_depth(
     locus_strand: char,
     min_mapq: u8,
     skip: bool,
+    require_unique_nh: bool,
 ) -> Result<()> {
     let tid = match reader.header().tid(chrom.as_bytes()) {
         Some(t) => t,
@@ -134,6 +140,9 @@ fn add_depth(
         let rec =
             rec.map_err(|e| CoreError::fail(format!("BAM read {}: {e}", bam_path.display())))?;
         if !pass_read(&rec, min_mapq, skip) {
+            continue;
+        }
+        if !nh_is_unique(&rec, require_unique_nh) {
             continue;
         }
         if !strand_ok(&rec, strandedness, locus_strand) {
@@ -258,6 +267,7 @@ pub fn extend_terminals(
                 loc.strand,
                 cfg.min_mapq,
                 *skip,
+                cfg.require_unique_nh,
             )?;
         }
         let left_origin = loc.intron_start.saturating_sub(1).max(1);
@@ -312,7 +322,7 @@ pub fn extend_terminals(
 
 #[cfg(test)]
 mod tests {
-    use super::{walk_terminal, SamplesJson};
+    use super::{walk_terminal, Cfg, SamplesJson};
 
     #[test]
     fn terminal_samples_ignore_group_labels_and_keep_the_full_cohort() {
@@ -321,6 +331,17 @@ mod tests {
         assert_eq!(parsed.samples.len(), 2);
         assert_eq!(parsed.samples[0].bam, "control.bam");
         assert_eq!(parsed.samples[1].bam, "treat.bam");
+    }
+
+    #[test]
+    fn require_unique_nh_defaults_false_and_deserializes() {
+        let cfg: Cfg = serde_json::from_str(r#"{"min_mapq":10,"skip_duplicate":"auto"}"#).unwrap();
+        assert!(!cfg.require_unique_nh);
+        let cfg: Cfg = serde_json::from_str(
+            r#"{"min_mapq":10,"skip_duplicate":"auto","require_unique_nh":true}"#,
+        )
+        .unwrap();
+        assert!(cfg.require_unique_nh);
     }
 
     #[test]
