@@ -67,11 +67,10 @@ jobs:
           path: dist
 
   macos:
-    # Both targets cross-compiled from one Apple Silicon runner. macos-13
-    # (Intel) hosted runners have very limited GitHub capacity and can queue
-    # indefinitely; Xcode on macos-14 can already target x86_64 as well as
+    # Both targets cross-compiled from one Apple Silicon runner. macos-14
+    # was retired on 2026-11-02. Xcode on macos-15 can target x86_64 and
     # aarch64, so there's no need for a separate Intel runner.
-    runs-on: macos-14
+    runs-on: macos-15
     strategy:
       fail-fast: false
       matrix:
